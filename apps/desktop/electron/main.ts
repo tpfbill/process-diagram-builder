@@ -3,11 +3,15 @@
  import fs from 'node:fs';
  
  const createWindow = async () => {
+  const preloadPath = app.isPackaged
+    ? path.join(__dirname, '../electron/preload.js')
+    : path.join(__dirname, '../preload/index.js');
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, '../electron/preload.js')
+      preload: preloadPath
     }
   });
   if (!app.isPackaged) {
