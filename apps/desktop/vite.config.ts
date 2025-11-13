@@ -6,7 +6,11 @@
   plugins: [
     electron({
       main: {
-        entry: 'electron/main.ts'
+        entry: 'electron/main.ts',
+        onstart({ startup }) {
+          // Launch Electron once Vite dev server is ready
+          startup();
+        }
       },
       preload: {
         input: {

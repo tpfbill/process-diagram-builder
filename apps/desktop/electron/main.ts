@@ -11,7 +11,8 @@
     }
   });
   if (!app.isPackaged) {
-    await win.loadURL('http://localhost:5173');
+    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    await win.loadURL(devUrl);
   } else {
     await win.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
