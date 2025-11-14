@@ -29,6 +29,11 @@ import Modeler from 'bpmn-js/lib/Modeler';
     modelerRef.current = m;
     // Initialize with an empty diagram so the canvas and palette render
     m.createDiagram();
+    const eventBus = (m as any).get('eventBus');
+    const off = eventBus.on('selection.changed', (e: any) => {
+      const sel = e.newSelection && e.newSelection[0];
+      setSelectedElementId(sel ? sel.id : null);
+    });
     return () => m.destroy();
   }, []);
  
@@ -46,12 +51,7 @@ import Modeler from 'bpmn-js/lib/Modeler';
     setManifest(updateTimestamp({ ...manifest, steps: next }));
   };
  
-  const onCanvasClick = async () => {
-    const elementRegistry = modelerRef.current?.get('elementRegistry');
-    const selection = modelerRef.current?.get('selection');
-    const selected = selection.get();
-    if (selected && selected[0]) setSelectedElementId(selected[0].id);
-  };
+  const onCanvasClick = async () => {};
  
   const startRecording = async (stepId: string) => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
