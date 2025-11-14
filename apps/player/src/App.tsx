@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './styles.css';
+import 'bpmn-js/dist/assets/diagram-js.css';
+import 'bpmn-js/dist/assets/bpmn-js.css';
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
  import BpmnJS from 'bpmn-js/lib/Modeler';
  import Viewer from 'bpmn-js/lib/Viewer';
  import { ProjectManifest, StepMeta } from '@pdb/core';
