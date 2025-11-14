@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './styles.css';
- import Modeler from 'bpmn-js/lib/Modeler';
+import 'bpmn-js/dist/assets/diagram-js.css';
+import 'bpmn-js/dist/assets/bpmn-js.css';
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
+import Modeler from 'bpmn-js/lib/Modeler';
  import { ProjectManifest, StepMeta, createEmptyManifest, updateTimestamp } from '@pdb/core';
  
  declare global {
@@ -24,6 +27,8 @@ import './styles.css';
   useEffect(() => {
     const m = new Modeler({ container: containerRef.current! });
     modelerRef.current = m;
+    // Initialize with an empty diagram so the canvas and palette render
+    m.createDiagram();
     return () => m.destroy();
   }, []);
  
