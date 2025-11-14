@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "dist-electron/main/index.cjs",
+  "main": "dist-electron/main/main.cjs",
   "scripts": {
     "dev": "npm-run-all -p dev:renderer dev:preload dev:main dev:electron",
     "dev:renderer": "vite",
     "dev:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/main --sourcemap --watch --log-level=info --out-extension:.js=.cjs",
     "dev:preload": "esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/preload --sourcemap --watch --log-level=info --out-extension:.js=.cjs",
-    "dev:electron": "wait-on tcp:5173 && nodemon -q -e cjs -w dist-electron/main/index.cjs -x \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron dist-electron/main/index.cjs\"",
+    "dev:electron": "wait-on tcp:5173 && nodemon -V -e cjs -w dist-electron/main/main.cjs -x \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 npx electron dist-electron/main/main.cjs\"",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -24,15 +24,15 @@
     "@types/node": "22.7.8",
     "@types/react": "18.3.8",
     "@types/react-dom": "18.3.0",
-    "electron": "31.4.0",
-    "typescript": "5.6.3",
-    "vite": "5.4.10",
-    "vite-plugin-electron": "0.28.8",
     "concurrently": "9.1.2",
-    "wait-on": "8.0.0",
+    "cross-env": "7.0.3",
+    "electron": "31.4.0",
     "esbuild": "0.24.0",
     "nodemon": "3.1.7",
     "npm-run-all": "4.1.5",
-    "cross-env": "7.0.3"
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vite-plugin-electron": "0.28.8",
+    "wait-on": "8.0.0"
   }
 }
