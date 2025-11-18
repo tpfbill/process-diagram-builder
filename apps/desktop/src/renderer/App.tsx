@@ -15,7 +15,7 @@ import ZoomScrollModule from 'diagram-js/lib/navigation/zoomscroll';
 import MoveCanvasModule from 'diagram-js/lib/navigation/movecanvas';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import ResizeModule from 'diagram-js/lib/features/resize';
+import BpmnResizeModule from 'bpmn-js/lib/features/resize';
  import { ProjectManifest, StepMeta, createEmptyManifest, updateTimestamp } from '@pdb/core';
  
  declare global {
@@ -48,7 +48,7 @@ import ResizeModule from 'diagram-js/lib/features/resize';
   useEffect(() => {
     const m = new Modeler({
       container: containerRef.current!,
-      additionalModules: [ZoomScrollModule, MoveCanvasModule, ResizeModule],
+      additionalModules: [ZoomScrollModule, MoveCanvasModule, BpmnResizeModule],
       keyboard: { bindTo: document }
     });
     modelerRef.current = m;

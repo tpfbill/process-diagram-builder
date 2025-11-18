@@ -20,3 +20,11 @@
   stroke: #0d47a1 !important;
   fill: #ffffff !important;
 }
+
+/* Force handles visible when selected (in case defaults are overridden) */
+.djs-selected .djs-resizer,
+.djs-selected .djs-resize-handle,
+.djs-selected .djs-resizer-handle,
+.djs-selected .djs-resizer-rect {
+  display: block !important;
+}
