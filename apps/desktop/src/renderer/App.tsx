@@ -54,6 +54,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const previewCancelRef = useRef<boolean>(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
  
   useEffect(() => {
     const m = new Modeler({
@@ -268,107 +269,114 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   };
  
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      <div style={{ width: 360, borderRight: '1px solid #ddd', padding: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {/* Top toolbar */}
+      <div style={{ height: 72, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid #ddd', background: '#fff' }}>
+        <button onClick={() => setShowSidebar(s => !s)} title={showSidebar ? 'Hide Steps' : 'Show Steps'}>
+          {showSidebar ? 'Hide Steps' : 'Show Steps'}
+        </button>
+        <div style={{ width: 12 }} />
         <button onClick={addStep} disabled={!selectedElementId}>Add Selected as Step</button>
-        <button onClick={saveProject} style={{ marginLeft: 8 }}>Save Project</button>
-        <div style={{ marginTop: 8 }}>
-          <button onClick={previewAll} disabled={steps.length === 0 || previewing}>Preview Sequence</button>
-          <button onClick={stopPreview} disabled={!previewing} style={{ marginLeft: 8 }}>Stop Preview</button>
+        <button onClick={saveProject}>Save Project</button>
+        <button onClick={previewAll} disabled={steps.length === 0 || previewing}>Preview</button>
+        <button onClick={stopPreview} disabled={!previewing}>Stop</button>
+        <div style={{ width: 16 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 360 }}>
+          <label style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>Label</label>
+          <input
+            type="text"
+            placeholder="Enter label"
+            value={selectedLabel}
+            onChange={e => setSelectedLabel(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') applyElementLabel(); }}
+            style={{ flex: 1, minWidth: 160 }}
+          />
+          <button onClick={applyElementLabel} disabled={!selectedElementId}>Apply</button>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ fontSize: 12, color: '#555' }}>Element label</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-                placeholder="Enter label for selected element"
-                value={selectedLabel}
-                onChange={e => setSelectedLabel(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') applyElementLabel(); }}
-                style={{ flex: 1 }}
-              />
-              <button onClick={applyElementLabel} disabled={!selectedElementId}>Apply</button>
-            </div>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ fontSize: 12, color: '#555' }}>Element size (px)</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                min={30}
-                placeholder="Width"
-                value={selectedWidth}
-                onChange={e => setSelectedWidth(e.target.value === '' ? '' : Number(e.target.value))}
-                style={{ width: 100 }}
-              />
-              ×
-              <input
-                type="number"
-                min={30}
-                placeholder="Height"
-                value={selectedHeight}
-                onChange={e => setSelectedHeight(e.target.value === '' ? '' : Number(e.target.value))}
-                style={{ width: 100 }}
-              />
-              <button onClick={applyElementSize} disabled={!selectedElementId || selectedWidth === '' || selectedHeight === ''}>Apply</button>
-            </div>
-          </div>
-          {steps.map((s, i) => (
-            <div
-              key={s.id}
-              draggable
-              onDragStart={() => onDragStartStep(s.id)}
-              onDragOver={onDragOverStep}
-              onDrop={() => onDropStep(s.id)}
-              style={{ padding: 8, borderBottom: '1px solid #eee', background: draggingId === s.id ? '#fafafa' : 'transparent' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: 500 }}>{i + 1}. {s.label}</div>
-                <div>
-                  <button onClick={() => moveStepIndex(i, -1)} disabled={i === 0}>▲</button>
-                  <button onClick={() => moveStepIndex(i, +1)} disabled={i === steps.length - 1} style={{ marginLeft: 4 }}>▼</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>Size</label>
+          <input
+            type="number"
+            min={30}
+            placeholder="W"
+            value={selectedWidth}
+            onChange={e => setSelectedWidth(e.target.value === '' ? '' : Number(e.target.value))}
+            style={{ width: 80 }}
+          />
+          ×
+          <input
+            type="number"
+            min={30}
+            placeholder="H"
+            value={selectedHeight}
+            onChange={e => setSelectedHeight(e.target.value === '' ? '' : Number(e.target.value))}
+            style={{ width: 80 }}
+          />
+          <button onClick={applyElementSize} disabled={!selectedElementId || selectedWidth === '' || selectedHeight === ''}>Apply</button>
+        </div>
+      </div>
+
+      {/* Main content: steps sidebar + canvas */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        {showSidebar && (
+          <div style={{ width: 320, borderRight: '1px solid #ddd', padding: 12, overflow: 'auto' }}>
+            {steps.map((s, i) => (
+              <div
+                key={s.id}
+                draggable
+                onDragStart={() => onDragStartStep(s.id)}
+                onDragOver={onDragOverStep}
+                onDrop={() => onDropStep(s.id)}
+                style={{ padding: 8, borderBottom: '1px solid #eee', background: draggingId === s.id ? '#fafafa' : 'transparent' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontWeight: 500 }}>{i + 1}. {s.label}</div>
+                  <div>
+                    <button onClick={() => moveStepIndex(i, -1)} disabled={i === 0}>▲</button>
+                    <button onClick={() => moveStepIndex(i, +1)} disabled={i === steps.length - 1} style={{ marginLeft: 4 }}>▼</button>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
-                <input
-                  type="range"
-                  min={500}
-                  max={10000}
-                  step={100}
-                  value={s.durationMs}
-                  onChange={e => {
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
+                  <input
+                    type="range"
+                    min={500}
+                    max={10000}
+                    step={100}
+                    value={s.durationMs}
+                    onChange={e => {
+                      const v = parseInt(e.target.value || '0', 10);
+                      const next = steps.map(x => x.id === s.id ? { ...x, durationMs: v } : x);
+                      setSteps(next);
+                      setManifest(updateTimestamp({ ...manifest, steps: next }));
+                    }}
+                    style={{ flex: 1, marginRight: 8 }}
+                  />
+                  <input type="number" value={s.durationMs} onChange={e => {
                     const v = parseInt(e.target.value || '0', 10);
                     const next = steps.map(x => x.id === s.id ? { ...x, durationMs: v } : x);
                     setSteps(next);
                     setManifest(updateTimestamp({ ...manifest, steps: next }));
-                  }}
-                  style={{ flex: 1, marginRight: 8 }}
-                />
-                <input type="number" value={s.durationMs} onChange={e => {
-                const v = parseInt(e.target.value || '0', 10);
-                const next = steps.map(x => x.id === s.id ? { ...x, durationMs: v } : x);
-                setSteps(next);
-                setManifest(updateTimestamp({ ...manifest, steps: next }));
-              }} style={{ width: 90 }} /> ms
+                  }} style={{ width: 90 }} /> ms
+                </div>
+                <div>
+                  <button onClick={() => startRecording(s.id)}>Record</button>
+                  <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
+                </div>
               </div>
-              <div>
-                <button onClick={() => startRecording(s.id)}>Record</button>
-                <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
-        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-        <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6, background: 'rgba(255,255,255,0.9)', border: '1px solid #ddd', borderRadius: 6, padding: '6px 8px' }}>
-          <button onClick={undo} disabled={!canUndo} title="Undo (⌘/Ctrl+Z)">Undo</button>
-          <button onClick={redo} disabled={!canRedo} title="Redo (⇧+⌘/Ctrl+Z)">Redo</button>
-          <button onClick={zoomOut} title="Zoom Out">-</button>
-          <button onClick={zoomReset} title="Reset Zoom">100%</button>
-          <button onClick={zoomIn} title="Zoom In">+</button>
-          <button onClick={zoomFit} title="Fit">Fit</button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
+          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+          <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6, background: 'rgba(255,255,255,0.9)', border: '1px solid #ddd', borderRadius: 6, padding: '6px 8px' }}>
+            <button onClick={undo} disabled={!canUndo} title="Undo (⌘/Ctrl+Z)">Undo</button>
+            <button onClick={redo} disabled={!canRedo} title="Redo (⇧+⌘/Ctrl+Z)">Redo</button>
+            <button onClick={zoomOut} title="Zoom Out">-</button>
+            <button onClick={zoomReset} title="Reset Zoom">100%</button>
+            <button onClick={zoomIn} title="Zoom In">+</button>
+            <button onClick={zoomFit} title="Fit">Fit</button>
+          </div>
         </div>
       </div>
     </div>
