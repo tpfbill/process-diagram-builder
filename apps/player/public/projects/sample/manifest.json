@@ -1,0 +1,14 @@
+{
+  "name": "Sample Process",
+  "version": 1,
+  "updatedAt": 1731950000000,
+  "steps": [
+    {
+      "id": "s1",
+      "label": "Start",
+      "bpmnElementId": "StartEvent_1",
+      "durationMs": 1500,
+      "audioFile": "s1.webm"
+    }
+  ]
+}
