@@ -24,6 +24,8 @@ import Modeler from 'bpmn-js/lib/Modeler';
   const chunksRef = useRef<BlobPart[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
+  const [selectedWidth, setSelectedWidth] = useState<number | ''>('');
+  const [selectedHeight, setSelectedHeight] = useState<number | ''>('');
   const selectedIdRef = useRef<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
@@ -41,8 +43,12 @@ import Modeler from 'bpmn-js/lib/Modeler';
       if (sel) {
         const name = sel.businessObject && sel.businessObject.name;
         setSelectedLabel(name || "");
+        setSelectedWidth(typeof sel.width === 'number' ? sel.width : '');
+        setSelectedHeight(typeof sel.height === 'number' ? sel.height : '');
       } else {
         setSelectedLabel("");
+        setSelectedWidth('');
+        setSelectedHeight('');
       }
     });
     // When labels are edited inline on canvas, reflect into sidebar and auto-sync steps
@@ -53,6 +59,8 @@ import Modeler from 'bpmn-js/lib/Modeler';
       const name = el.businessObject && el.businessObject.name;
       if (cur && el.id === cur) {
         setSelectedLabel(name || "");
+        if (typeof el.width === 'number') setSelectedWidth(el.width);
+        if (typeof el.height === 'number') setSelectedHeight(el.height);
       }
       // Auto-sync any steps that reference this BPMN element
       if (el.id) {
@@ -94,6 +102,18 @@ import Modeler from 'bpmn-js/lib/Modeler';
     const el = elementRegistry.get(selectedElementId);
     if (!el) return;
     modeling.updateLabel(el, selectedLabel);
+  };
+
+  const applyElementSize = () => {
+    if (!selectedElementId || !modelerRef.current) return;
+    if (selectedWidth === '' || selectedHeight === '') return;
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
+    const modeling = (modelerRef.current as any).get('modeling');
+    const el = elementRegistry.get(selectedElementId);
+    if (!el) return;
+    const w = Math.max(30, Number(selectedWidth));
+    const h = Math.max(30, Number(selectedHeight));
+    modeling.resizeShape(el, { x: el.x, y: el.y, width: w, height: h });
   };
 
   const moveStepIndex = (index: number, delta: number) => {
@@ -209,6 +229,29 @@ import Modeler from 'bpmn-js/lib/Modeler';
                 style={{ flex: 1 }}
               />
               <button onClick={applyElementLabel} disabled={!selectedElementId}>Apply</button>
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontSize: 12, color: '#555' }}>Element size (px)</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="number"
+                min={30}
+                placeholder="Width"
+                value={selectedWidth}
+                onChange={e => setSelectedWidth(e.target.value === '' ? '' : Number(e.target.value))}
+                style={{ width: 100 }}
+              />
+              ×
+              <input
+                type="number"
+                min={30}
+                placeholder="Height"
+                value={selectedHeight}
+                onChange={e => setSelectedHeight(e.target.value === '' ? '' : Number(e.target.value))}
+                style={{ width: 100 }}
+              />
+              <button onClick={applyElementSize} disabled={!selectedElementId || selectedWidth === '' || selectedHeight === ''}>Apply</button>
             </div>
           </div>
           {steps.map((s, i) => (
