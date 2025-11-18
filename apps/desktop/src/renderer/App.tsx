@@ -218,13 +218,45 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     for (const s of steps) {
       if (previewCancelRef.current) break;
       canvas.addMarker(s.bpmnElementId, 'current');
-      await delay(s.durationMs);
+      const blob = recordings[s.id];
+      if (blob) {
+        // stop any existing playback
+        if (playAudioRef.current) {
+          try { playAudioRef.current.pause(); } catch {}
+          playAudioRef.current = null;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        playAudioRef.current = a;
+        await new Promise<void>((resolve) => {
+          const cleanup = () => {
+            try { a.pause(); } catch {}
+            URL.revokeObjectURL(url);
+            if (playAudioRef.current === a) playAudioRef.current = null;
+          };
+          a.onended = () => { cleanup(); resolve(); };
+          a.onerror = () => { cleanup(); resolve(); };
+          a.play().catch(() => { cleanup(); resolve(); });
+          // Failsafe: if user cancels preview, stop early
+          const checkCancel = () => {
+            if (previewCancelRef.current) { cleanup(); resolve(); }
+            else setTimeout(checkCancel, 50);
+          };
+          setTimeout(checkCancel, 50);
+        });
+      } else {
+        await delay(s.durationMs);
+      }
       canvas.removeMarker(s.bpmnElementId, 'current');
     }
     setPreviewing(false);
   };
   const stopPreview = () => {
     previewCancelRef.current = true;
+    if (playAudioRef.current) {
+      try { playAudioRef.current.pause(); } catch {}
+      playAudioRef.current = null;
+    }
     setPreviewing(false);
   };
  
