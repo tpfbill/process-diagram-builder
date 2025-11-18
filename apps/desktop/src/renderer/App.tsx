@@ -564,6 +564,21 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
                     setManifest(updateTimestamp({ ...manifest, steps: next }));
                   }} style={{ width: 90 }} /> ms
                 </div>
+                {/* Popup description editor */}
+                <div style={{ marginTop: 8 }}>
+                  <textarea
+                    placeholder="Popup description (optional)"
+                    value={s.description || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const next = steps.map(x => x.id === s.id ? { ...x, description: val } : x);
+                      setSteps(next);
+                      setManifest(updateTimestamp({ ...manifest, steps: next }));
+                    }}
+                    rows={3}
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                </div>
                 <div>
                   <button onClick={() => startRecording(s.id)}>Record</button>
                   <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
