@@ -32,6 +32,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   interface Window {
     api: {
       saveProject: (payload: { manifest: string; bpmn: string; audios: { name: string; bytes: number[] }[] }) => Promise<{ ok: boolean; path?: string }>;
+      openProject: () => Promise<{ ok: boolean; manifest?: string; bpmn?: string; audios?: { name: string; bytes: number[] }[] }>;
     };
   }
  }
@@ -268,6 +269,30 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     const man = JSON.stringify({ ...manifest, steps: steps.map(s => ({ ...s, audioFile: `${s.id}.webm` })) }, null, 2);
     await window.api.saveProject({ manifest: man, bpmn: xmlStr, audios });
   };
+
+  const openProject = async () => {
+    const resp = await window.api.openProject();
+    if (!resp?.ok || !resp.manifest || !resp.bpmn) return;
+    try {
+      const mObj: ProjectManifest = JSON.parse(resp.manifest);
+      setManifest(mObj);
+      setSteps(mObj.steps || []);
+      await modelerRef.current?.importXML(resp.bpmn);
+      const recs: Record<string, Blob> = {};
+      if (resp.audios && Array.isArray(resp.audios)) {
+        const audioMap = new Map(resp.audios.map(a => [a.name, a.bytes] as const));
+        for (const s of mObj.steps || []) {
+          const name = s.audioFile || `${s.id}.webm`;
+          const bytes = audioMap.get(name);
+          if (bytes) {
+            const u8 = new Uint8Array(bytes as number[]);
+            recs[s.id] = new Blob([u8], { type: 'audio/webm' });
+          }
+        }
+      }
+      setRecordings(recs);
+    } catch {}
+  };
  
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -278,6 +303,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         </button>
         <div style={{ width: 12 }} />
         <button onClick={addStep} disabled={!selectedElementId}>Add Selected as Step</button>
+        <button onClick={openProject}>Open Project</button>
         <button onClick={saveProject}>Save Project</button>
         <button onClick={previewAll} disabled={steps.length === 0 || previewing}>Preview</button>
         <button onClick={stopPreview} disabled={!previewing}>Stop</button>
