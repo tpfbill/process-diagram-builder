@@ -160,7 +160,10 @@ ${cssFont}
   <div class="wrap">
     <div class="sidebar">
       <div id="choices" style="margin-bottom:12px;"></div>
-      <button id="next">Next</button>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button id="next">Next</button>
+        <button id="run">Run Continuous</button>
+      </div>
       <div id="list"></div>
     </div>
     <div class="canvas">
@@ -254,6 +257,7 @@ ${cssFont}
       return hasEnd ? -2 : -1;
     }
 
+    var choiceResolve = null;
     function showChoices(){
       var ctn = document.getElementById('choices');
       ctn.innerHTML = '';
@@ -267,7 +271,7 @@ ${cssFont}
       var title = document.createElement('div'); title.textContent = 'Choose a path'; title.style.fontWeight = '600'; title.style.marginBottom = '6px';
       ctn.appendChild(title);
       opts.forEach(function(o){
-        var b = document.createElement('button'); b.textContent = o.label; b.onclick = function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; playStep(o.to); };
+        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
         ctn.appendChild(b);
       });
     }
@@ -293,6 +297,34 @@ ${cssFont}
       if(current < 0 && steps.length){ playStep(0); return; }
       var ni = computeNextIndex();
       if(ni >= 0){ playStep(ni); }
+    };
+    var running = false;
+    function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
+    document.getElementById('run').onclick = async function(){
+      if(running) return;
+      running = true;
+      var runBtn = document.getElementById('run');
+      var nextBtn = document.getElementById('next');
+      runBtn.disabled = true;
+      nextBtn.disabled = true;
+      try {
+        var steps = (data.manifest && data.manifest.steps) || [];
+        if(current < 0 && steps.length){ await playStep(0); }
+        while(true){
+          var opts = computeChoices();
+          if(opts.length){
+            await waitForChoice();
+          } else {
+            var ni = computeNextIndex();
+            if(ni >= 0){ await playStep(ni); }
+            else { break; }
+          }
+        }
+      } finally {
+        running = false;
+        runBtn.disabled = false;
+        showChoices();
+      }
     };
     viewer.importXML(data.xml).then(function(){ renderList(); canvas().zoom('fit-viewport'); }).catch(console.error);
   })();
