@@ -56,6 +56,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
+  const [previewChoices, setPreviewChoices] = useState<Array<{ label: string; to: number }>>([]);
+  const choiceResolverRef = useRef<((to: number) => void) | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -205,28 +207,114 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   };
 
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+  const waitForChoice = () => new Promise<number>((resolve) => { choiceResolverRef.current = resolve; });
+
+  const computeChoices = (idx: number) => {
+    if (!modelerRef.current) return [] as Array<{ label: string; to: number }>;
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
+    const stepsLocal = stepsRef.current;
+    const curStep = stepsLocal[idx];
+    const el = curStep && elementRegistry.get(curStep.bpmnElementId);
+    const type: string | undefined = el?.type || el?.businessObject?.$type;
+    const isGateway = !!type && /Gateway$/.test(type);
+    if (!isGateway) return [];
+    const outgoing: any[] = (el?.businessObject?.outgoing || []) as any[];
+    const reachable = (startId: string) => {
+      const vis = new Set<string>();
+      const q: string[] = [startId];
+      while (q.length) {
+        const id = q.shift()!;
+        if (vis.has(id)) continue;
+        vis.add(id);
+        const node = elementRegistry.get(id);
+        const outs: any[] = (node?.businessObject?.outgoing || []) as any[];
+        for (const f of outs) if (f?.targetRef?.id) q.push(f.targetRef.id);
+      }
+      return vis;
+    };
+    const options: Array<{ label: string; to: number }> = [];
+    for (const flow of outgoing) {
+      const target = flow?.targetRef;
+      if (!target?.id) continue;
+      const reach = reachable(target.id);
+      let to = -1;
+      for (let j = idx + 1; j < stepsLocal.length; j++) {
+        if (reach.has(stepsLocal[j].bpmnElementId)) { to = j; break; }
+      }
+      if (to >= 0) options.push({ label: target.name || target.id, to });
+    }
+    return options;
+  };
+
+  const computeNextFromFlow = (idx: number) => {
+    if (!modelerRef.current) return { to: -1, hasEnd: false };
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
+    const stepsLocal = stepsRef.current;
+    const cur = stepsLocal[idx];
+    if (!cur) return { to: -1, hasEnd: false };
+    const curEl = elementRegistry.get(cur.bpmnElementId);
+    const t: string | undefined = curEl?.type || curEl?.businessObject?.$type;
+    if (t && /Gateway$/.test(t)) return { to: -1, hasEnd: false };
+    const ids = new Set<string>();
+    let hasEnd = false;
+    const q: any[] = [];
+    const outs: any[] = (curEl?.businessObject?.outgoing || []) as any[];
+    for (const f of outs) if (f?.targetRef) q.push(f.targetRef);
+    while (q.length) {
+      const n = q.shift();
+      if (!n?.id || ids.has(n.id)) continue;
+      ids.add(n.id);
+      const ty: string | undefined = n.$type || n.type;
+      if (ty && /EndEvent$/.test(ty)) hasEnd = true;
+      const o: any[] = (n.outgoing || []) as any[];
+      for (const f of o) if (f?.targetRef) q.push(f.targetRef);
+    }
+    let to = -1;
+    for (let j = idx + 1; j < stepsLocal.length; j++) {
+      if (ids.has(stepsLocal[j].bpmnElementId)) { to = j; break; }
+    }
+    return { to, hasEnd };
+  };
+
   const previewAll = async () => {
     if (previewing) return;
     if (!modelerRef.current) return;
     setPreviewing(true);
     previewCancelRef.current = false;
     const canvas = (modelerRef.current as any).get('canvas');
-    for (const s of steps) {
-      if (previewCancelRef.current) break;
+    let idx = 0;
+    while (!previewCancelRef.current && idx >= 0 && idx < stepsRef.current.length) {
+      const s = stepsRef.current[idx];
+      if (!s) break;
       canvas.addMarker(s.bpmnElementId, 'current');
       const blob = recordings[s.id];
-      if (blob) {
-        await playBlob(blob);
-      } else {
-        await delay(s.durationMs);
-      }
+      if (blob) await playBlob(blob); else await delay(s.durationMs);
       canvas.removeMarker(s.bpmnElementId, 'current');
+      if (previewCancelRef.current) break;
+
+      // Branching logic
+      const choices = computeChoices(idx);
+      if (choices.length) {
+        setPreviewChoices(choices);
+        const sel = await waitForChoice();
+        setPreviewChoices([]);
+        if (previewCancelRef.current || sel < 0) break;
+        idx = sel;
+        continue;
+      }
+      const { to, hasEnd } = computeNextFromFlow(idx);
+      if (to >= 0) { idx = to; continue; }
+      if (hasEnd) break;
+      idx = idx + 1; // fallback
     }
     setPreviewing(false);
   };
   const stopPreview = () => {
     previewCancelRef.current = true;
     stopPlayback();
+    if (choiceResolverRef.current) { try { choiceResolverRef.current(-1); } catch {} choiceResolverRef.current = null; }
+    setPreviewChoices([]);
     setPreviewing(false);
   };
  
@@ -426,6 +514,18 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {showSidebar && (
           <div style={{ width: 320, borderRight: '1px solid #ddd', padding: 12, overflow: 'auto' }}>
+            {previewChoices.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Choose a path</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {previewChoices.map((c, i) => (
+                    <button key={i} onClick={() => { const r = choiceResolverRef.current; choiceResolverRef.current = null; setPreviewChoices([]); r && r(c.to); }}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {steps.map((s, i) => (
               <div
                 key={s.id}
