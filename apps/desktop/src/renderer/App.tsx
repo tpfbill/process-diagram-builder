@@ -143,6 +143,21 @@ import Modeler from 'bpmn-js/lib/Modeler';
   };
  
   const onCanvasClick = async () => {};
+
+  // Zoom controls
+  const getCanvas = () => (modelerRef.current as any)?.get('canvas');
+  const zoomValue = () => getCanvas()?.zoom() ?? 1;
+  const setZoom = (z: number) => getCanvas()?.zoom(z);
+  const zoomIn = () => {
+    const z = zoomValue();
+    setZoom(Math.min(z * 1.2, 3));
+  };
+  const zoomOut = () => {
+    const z = zoomValue();
+    setZoom(Math.max(z / 1.2, 0.2));
+  };
+  const zoomReset = () => setZoom(1);
+  const zoomFit = () => getCanvas()?.zoom('fit-viewport');
  
   const startRecording = async (stepId: string) => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -242,8 +257,14 @@ import Modeler from 'bpmn-js/lib/Modeler';
           ))}
         </div>
       </div>
-      <div style={{ flex: 1 }} onClick={onCanvasClick}>
+      <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6, background: 'rgba(255,255,255,0.9)', border: '1px solid #ddd', borderRadius: 6, padding: '6px 8px' }}>
+          <button onClick={zoomOut} title="Zoom Out">-</button>
+          <button onClick={zoomReset} title="Reset Zoom">100%</button>
+          <button onClick={zoomIn} title="Zoom In">+</button>
+          <button onClick={zoomFit} title="Fit">Fit</button>
+        </div>
       </div>
     </div>
   );

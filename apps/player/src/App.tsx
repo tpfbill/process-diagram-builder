@@ -13,6 +13,13 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
    const [manifest, setManifest] = useState<ProjectManifest | null>(null);
    const [current, setCurrent] = useState<number>(-1);
    const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const getCanvas = () => (viewer as any)?.get('canvas');
+  const zoomValue = () => getCanvas()?.zoom() ?? 1;
+  const setZoom = (z: number) => getCanvas()?.zoom(z);
+  const zoomIn = () => { const z = zoomValue(); setZoom(Math.min(z * 1.2, 3)); };
+  const zoomOut = () => { const z = zoomValue(); setZoom(Math.max(z / 1.2, 0.2)); };
+  const zoomReset = () => setZoom(1);
+  const zoomFit = () => getCanvas()?.zoom('fit-viewport');
  
    useEffect(() => {
      const v = new Viewer({ container: containerRef.current! });
@@ -73,8 +80,14 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
            ))}
          </div>
        </div>
-       <div style={{ flex: 1 }}>
-         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div style={{ flex: 1, position: 'relative' }}>
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6, background: 'rgba(255,255,255,0.9)', border: '1px solid #ddd', borderRadius: 6, padding: '6px 8px' }}>
+          <button onClick={zoomOut} title="Zoom Out">-</button>
+          <button onClick={zoomReset} title="Reset Zoom">100%</button>
+          <button onClick={zoomIn} title="Zoom In">+</button>
+          <button onClick={zoomFit} title="Fit">Fit</button>
+        </div>
        </div>
      </div>
    );
