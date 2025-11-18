@@ -24,6 +24,7 @@ import Modeler from 'bpmn-js/lib/Modeler';
   const chunksRef = useRef<BlobPart[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
+  const selectedIdRef = useRef<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
@@ -34,7 +35,7 @@ import Modeler from 'bpmn-js/lib/Modeler';
     // Initialize with an empty diagram so the canvas and palette render
     m.createDiagram();
     const eventBus = (m as any).get('eventBus');
-    const off = eventBus.on('selection.changed', (e: any) => {
+    eventBus.on('selection.changed', (e: any) => {
       const sel = e.newSelection && e.newSelection[0];
       setSelectedElementId(sel ? sel.id : null);
       if (sel) {
@@ -44,8 +45,20 @@ import Modeler from 'bpmn-js/lib/Modeler';
         setSelectedLabel("");
       }
     });
+    // When labels are edited inline on canvas, reflect into sidebar
+    eventBus.on('element.changed', (e: any) => {
+      const el = e && e.element;
+      if (!el) return;
+      const cur = selectedIdRef.current;
+      if (cur && el.id === cur) {
+        const name = el.businessObject && el.businessObject.name;
+        setSelectedLabel(name || "");
+      }
+    });
     return () => m.destroy();
   }, []);
+
+  useEffect(() => { selectedIdRef.current = selectedElementId; }, [selectedElementId]);
  
   const addStep = () => {
     if (!selectedElementId) return;
