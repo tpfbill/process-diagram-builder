@@ -50,3 +50,34 @@
   }
   return { ok: true, path: projDir };
  });
+
+ // Open an existing project directory and read manifest, diagram, and audio files
+ ipcMain.handle('dialog:openProject', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Open Project Folder',
+    properties: ['openDirectory']
+  });
+  if (canceled || !filePaths || filePaths.length === 0) return { ok: false };
+  const projDir = filePaths[0];
+  try {
+    const manifestPath = path.join(projDir, 'manifest.json');
+    const bpmnPath = path.join(projDir, 'diagram.bpmn');
+    if (!fs.existsSync(manifestPath) || !fs.existsSync(bpmnPath)) {
+      return { ok: false };
+    }
+    const manifest = fs.readFileSync(manifestPath, 'utf-8');
+    const bpmn = fs.readFileSync(bpmnPath, 'utf-8');
+    const audioDir = path.join(projDir, 'audio');
+    let audios: { name: string; bytes: number[] }[] = [];
+    if (fs.existsSync(audioDir) && fs.statSync(audioDir).isDirectory()) {
+      const files = fs.readdirSync(audioDir);
+      audios = files.map((name) => {
+        const buf = fs.readFileSync(path.join(audioDir, name));
+        return { name, bytes: Array.from(Uint8Array.from(buf)) };
+      });
+    }
+    return { ok: true, manifest, bpmn, audios };
+  } catch (e) {
+    return { ok: false };
+  }
+ });
