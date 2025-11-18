@@ -153,6 +153,7 @@ ${cssFont}
     .step { padding: 6px; }
     .step.current { background: #eef; }
     button { cursor: pointer; }
+    #popup { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 12px 14px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,0.12); max-height: 40%; overflow: auto; display: none; }
   </style>
 </head>
 <body>
@@ -170,6 +171,7 @@ ${cssFont}
         <button id="zoomIn">+</button>
         <button id="zoomFit">Fit</button>
       </div>
+      <div id="popup"></div>
     </div>
   </div>
   <script>${viewerJs}</script>
@@ -270,13 +272,21 @@ ${cssFont}
       });
     }
 
+    function showPopup(text){
+      var el = document.getElementById('popup');
+      if(!el) return;
+      if(text && String(text).trim().length){ el.textContent = text; el.style.display = 'block'; }
+      else { el.textContent=''; el.style.display = 'none'; }
+    }
+
     function playStep(idx){
       var s = (data.manifest.steps||[])[idx]; if(!s) return Promise.resolve();
       current = idx; renderList(); addMarker(s); showChoices();
+      showPopup(s && s.description || '');
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); res(); }; audio.onerror=function(){ clearMarker(s); res(); }; audio.play().catch(function(){ clearMarker(s); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); showPopup(''); res(); }; audio.onerror=function(){ clearMarker(s); showPopup(''); res(); }; audio.play().catch(function(){ clearMarker(s); showPopup(''); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); showPopup(''); res(); }, s.durationMs||1000); });
     }
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
