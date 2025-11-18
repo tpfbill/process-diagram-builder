@@ -33,6 +33,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     api: {
       saveProject: (payload: { manifest: string; bpmn: string; audios: { name: string; bytes: number[] }[] }) => Promise<{ ok: boolean; path?: string }>;
       openProject: () => Promise<{ ok: boolean; manifest?: string; bpmn?: string; audios?: { name: string; bytes: number[] }[] }>;
+      exportStandalone: (payload: { manifest: string; bpmn: string; audios: { name: string; bytes: number[] }[] }) => Promise<{ ok: boolean; path?: string }>;
     };
   }
  }
@@ -270,6 +271,20 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     await window.api.saveProject({ manifest: man, bpmn: xmlStr, audios });
   };
 
+  const exportStandalone = async () => {
+    const { xml } = await modelerRef.current!.saveXML({ format: true });
+    const xmlStr = xml ?? '';
+    const audios = await Promise.all(
+      steps.map(async s => {
+        const blob = recordings[s.id];
+        const arr = blob ? new Uint8Array(await blob.arrayBuffer()) : new Uint8Array();
+        return { name: `${s.id}.webm`, bytes: Array.from(arr) };
+      })
+    );
+    const man = JSON.stringify({ ...manifest, steps: steps.map(s => ({ ...s, audioFile: `${s.id}.webm` })) }, null, 2);
+    await window.api.exportStandalone({ manifest: man, bpmn: xmlStr, audios });
+  };
+
   const openProject = async () => {
     const resp = await window.api.openProject();
     if (!resp?.ok || !resp.manifest || !resp.bpmn) return;
@@ -305,6 +320,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         <button onClick={addStep} disabled={!selectedElementId}>Add Selected as Step</button>
         <button onClick={openProject}>Open Project</button>
         <button onClick={saveProject}>Save Project</button>
+        <button onClick={exportStandalone}>Export Standalone</button>
         <button onClick={previewAll} disabled={steps.length === 0 || previewing}>Preview</button>
         <button onClick={stopPreview} disabled={!previewing}>Stop</button>
         <div style={{ width: 16 }} />
