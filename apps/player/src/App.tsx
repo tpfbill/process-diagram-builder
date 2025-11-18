@@ -13,6 +13,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
    const [manifest, setManifest] = useState<ProjectManifest | null>(null);
    const [current, setCurrent] = useState<number>(-1);
    const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [choices, setChoices] = useState<Array<{ label: string; to: number }>>([]);
   const getCanvas = () => (viewer as any)?.get('canvas');
   const zoomValue = () => getCanvas()?.zoom() ?? 1;
   const setZoom = (z: number) => getCanvas()?.zoom(z);
@@ -45,6 +46,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      const step = manifest.steps[idx];
      if (!step) return;
      setCurrent(idx);
+    setChoices([]);
      const canvas = (viewer as any).get('canvas');
      canvas.zoom('fit-viewport');
     canvas.addMarker(step.bpmnElementId, 'current');
@@ -62,16 +64,68 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
    };
  
    const next = () => {
-     const idx = current + 1;
-     if (!manifest) return;
-     if (idx < manifest.steps.length) playStep(idx);
+    if (!manifest || !viewer) return;
+    // If current is a gateway, present branch choices instead of blindly advancing
+    const elementRegistry = (viewer as any).get('elementRegistry');
+    const steps = manifest.steps;
+    const idx = current + 1;
+    if (current >= 0) {
+      const curStep = steps[current];
+      const el = curStep && elementRegistry.get(curStep.bpmnElementId);
+      const type: string | undefined = el?.type || el?.businessObject?.$type;
+      const isGateway = !!type && /Gateway$/.test(type);
+      if (isGateway) {
+        const outgoing: any[] = (el?.businessObject?.outgoing || []) as any[];
+        const computeReachable = (startId: string): Set<string> => {
+          const vis = new Set<string>();
+          const q: string[] = [startId];
+          while (q.length) {
+            const id = q.shift()!;
+            if (vis.has(id)) continue;
+            vis.add(id);
+            const node = elementRegistry.get(id);
+            const bos = node?.businessObject;
+            const outs: any[] = (bos?.outgoing || []) as any[];
+            for (const f of outs) { if (f?.targetRef?.id) q.push(f.targetRef.id); }
+          }
+          return vis;
+        };
+        const options: Array<{ label: string; to: number }> = [];
+        for (const flow of outgoing) {
+          const target = flow?.targetRef;
+          if (!target?.id) continue;
+          const reach = computeReachable(target.id);
+          let to = -1;
+          for (let j = current + 1; j < steps.length; j++) {
+            if (reach.has(steps[j].bpmnElementId)) { to = j; break; }
+          }
+          if (to >= 0) {
+            options.push({ label: target.name || target.id, to });
+          }
+        }
+        if (options.length) { setChoices(options); return; }
+      }
+    }
+    if (idx < steps.length) playStep(idx);
    };
  
    return (
      <div style={{ display: 'flex', height: '100vh' }}>
-       <div style={{ width: 280, padding: 12, borderRight: '1px solid #ddd' }}>
-         <input id="file-input" type="file" multiple onChange={e => loadFiles(e.target.files)} />
-         <button onClick={next} disabled={!manifest}>Next</button>
+      <div style={{ width: 280, padding: 12, borderRight: '1px solid #ddd' }}>
+        <input id="file-input" type="file" multiple onChange={e => loadFiles(e.target.files)} />
+        {choices.length > 0 && (
+          <div style={{ margin: '12px 0' }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Choose a path</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {choices.map((c, i) => (
+                <button key={i} onClick={() => { setChoices([]); playStep(c.to); }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <button onClick={next} disabled={!manifest || choices.length > 0}>Next</button>
          <div>
            {manifest?.steps.map((s: StepMeta, i) => (
              <div key={s.id} style={{ padding: 6, background: i === current ? '#eef' : 'transparent' }}>

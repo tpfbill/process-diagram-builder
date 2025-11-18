@@ -19,3 +19,8 @@ dist-electron/
 
 # OS
 Thumbs.db
+
+# Vite cache
+.vite/
+**/.vite/
+apps/*/.vite/

@@ -130,8 +130,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     const id = `${Date.now()}`;
     const s: StepMeta = {
       id,
-      label: selectedLabel || selectedElementId,
-      bpmnElementId: selectedElementId,
+      label: selectedLabel || (selectedElementId ?? ''),
+      bpmnElementId: selectedElementId ?? '',
       durationMs: 2000
     };
     const next = [...steps, s];
@@ -257,6 +257,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
  
   const saveProject = async () => {
     const { xml } = await modelerRef.current!.saveXML({ format: true });
+    const xmlStr = xml ?? '';
     const audios = await Promise.all(
       steps.map(async s => {
         const blob = recordings[s.id];
@@ -265,7 +266,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       })
     );
     const man = JSON.stringify({ ...manifest, steps: steps.map(s => ({ ...s, audioFile: `${s.id}.webm` })) }, null, 2);
-    await window.api.saveProject({ manifest: man, bpmn: xml, audios });
+    await window.api.saveProject({ manifest: man, bpmn: xmlStr, audios });
   };
  
   return (

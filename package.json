@@ -13,7 +13,7 @@
     "dev:desktop": "npm run -w apps/desktop dev",
     "dev:player": "npm run -w apps/player dev",
     "format": "prettier -w .",
-    "typecheck": "tsc -b -v"
+    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p apps/desktop && tsc --noEmit -p apps/player"
   },
   "engines": {
     "node": ">=20.0.0"
