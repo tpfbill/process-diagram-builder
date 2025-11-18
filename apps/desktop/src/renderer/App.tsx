@@ -58,6 +58,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const previewCancelRef = useRef<boolean>(false);
   const [previewChoices, setPreviewChoices] = useState<Array<{ label: string; to: number }>>([]);
   const choiceResolverRef = useRef<((to: number) => void) | null>(null);
+  const [previewText, setPreviewText] = useState<string>("");
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -288,9 +289,11 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       const s = stepsRef.current[idx];
       if (!s) break;
       canvas.addMarker(s.bpmnElementId, 'current');
+      setPreviewText(s.description || "");
       const blob = recordings[s.id];
       if (blob) await playBlob(blob); else await delay(s.durationMs);
       canvas.removeMarker(s.bpmnElementId, 'current');
+      setPreviewText("");
       if (previewCancelRef.current) break;
 
       // Branching logic
@@ -315,6 +318,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     stopPlayback();
     if (choiceResolverRef.current) { try { choiceResolverRef.current(-1); } catch {} choiceResolverRef.current = null; }
     setPreviewChoices([]);
+    setPreviewText("");
     setPreviewing(false);
   };
  
@@ -591,6 +595,25 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
 
         <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+          {previewing && previewText && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 16,
+                right: 16,
+                bottom: 16,
+                padding: '12px 14px',
+                background: 'rgba(255,255,255,0.95)',
+                border: '1px solid #ddd',
+                borderRadius: 8,
+                boxShadow: '0 4px 18px rgba(0,0,0,0.12)',
+                maxHeight: '40%',
+                overflow: 'auto'
+              }}
+            >
+              {previewText}
+            </div>
+          )}
         </div>
       </div>
     </div>
