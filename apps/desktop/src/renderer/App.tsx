@@ -23,6 +23,7 @@ import Modeler from 'bpmn-js/lib/Modeler';
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string>("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
@@ -36,6 +37,12 @@ import Modeler from 'bpmn-js/lib/Modeler';
     const off = eventBus.on('selection.changed', (e: any) => {
       const sel = e.newSelection && e.newSelection[0];
       setSelectedElementId(sel ? sel.id : null);
+      if (sel) {
+        const name = sel.businessObject && sel.businessObject.name;
+        setSelectedLabel(name || "");
+      } else {
+        setSelectedLabel("");
+      }
     });
     return () => m.destroy();
   }, []);
@@ -45,13 +52,22 @@ import Modeler from 'bpmn-js/lib/Modeler';
     const id = `${Date.now()}`;
     const s: StepMeta = {
       id,
-      label: selectedElementId,
+      label: selectedLabel || selectedElementId,
       bpmnElementId: selectedElementId,
       durationMs: 2000
     };
     const next = [...steps, s];
     setSteps(next);
     setManifest(updateTimestamp({ ...manifest, steps: next }));
+  };
+
+  const applyElementLabel = () => {
+    if (!selectedElementId || !modelerRef.current) return;
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
+    const modeling = (modelerRef.current as any).get('modeling');
+    const el = elementRegistry.get(selectedElementId);
+    if (!el) return;
+    modeling.updateLabel(el, selectedLabel);
   };
 
   const moveStepIndex = (index: number, delta: number) => {
@@ -140,6 +156,20 @@ import Modeler from 'bpmn-js/lib/Modeler';
           <button onClick={stopPreview} disabled={!previewing} style={{ marginLeft: 8 }}>Stop Preview</button>
         </div>
         <div style={{ marginTop: 12 }}>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontSize: 12, color: '#555' }}>Element label</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Enter label for selected element"
+                value={selectedLabel}
+                onChange={e => setSelectedLabel(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') applyElementLabel(); }}
+                style={{ flex: 1 }}
+              />
+              <button onClick={applyElementLabel} disabled={!selectedElementId}>Apply</button>
+            </div>
+          </div>
           {steps.map((s, i) => (
             <div
               key={s.id}
