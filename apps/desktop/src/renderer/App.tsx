@@ -42,6 +42,8 @@ import ResizeModule from 'diagram-js/lib/features/resize';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
  
   useEffect(() => {
     const m = new Modeler({
@@ -53,6 +55,14 @@ import ResizeModule from 'diagram-js/lib/features/resize';
     // Initialize with an empty diagram so the canvas and palette render
     m.createDiagram();
     const eventBus = (m as any).get('eventBus');
+    const commandStack = (m as any).get('commandStack');
+    // initialize undo/redo state
+    setCanUndo(commandStack.canUndo());
+    setCanRedo(commandStack.canRedo());
+    eventBus.on('commandStack.changed', () => {
+      setCanUndo(commandStack.canUndo());
+      setCanRedo(commandStack.canRedo());
+    });
     eventBus.on('selection.changed', (e: any) => {
       const sel = e.newSelection && e.newSelection[0];
       setSelectedElementId(sel ? sel.id : null);
@@ -194,6 +204,23 @@ import ResizeModule from 'diagram-js/lib/features/resize';
   };
   const zoomReset = () => setZoom(1);
   const zoomFit = () => getCanvas()?.zoom('fit-viewport');
+
+  // Undo / Redo controls
+  const undo = () => (modelerRef.current as any)?.get('commandStack').undo();
+  const redo = () => (modelerRef.current as any)?.get('commandStack').redo();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isInput = (e.target as HTMLElement)?.closest('input, textarea, [contenteditable="true"]');
+      if (isInput) return; // don't hijack typing
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
  
   const startRecording = async (stepId: string) => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -319,6 +346,8 @@ import ResizeModule from 'diagram-js/lib/features/resize';
       <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
         <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6, background: 'rgba(255,255,255,0.9)', border: '1px solid #ddd', borderRadius: 6, padding: '6px 8px' }}>
+          <button onClick={undo} disabled={!canUndo} title="Undo (⌘/Ctrl+Z)">Undo</button>
+          <button onClick={redo} disabled={!canRedo} title="Redo (⇧+⌘/Ctrl+Z)">Redo</button>
           <button onClick={zoomOut} title="Zoom Out">-</button>
           <button onClick={zoomReset} title="Reset Zoom">100%</button>
           <button onClick={zoomIn} title="Zoom In">+</button>
