@@ -281,7 +281,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         <button onClick={previewAll} disabled={steps.length === 0 || previewing}>Preview</button>
         <button onClick={stopPreview} disabled={!previewing}>Stop</button>
         <div style={{ width: 16 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 360 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 240 }}>
           <label style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>Label</label>
           <input
             type="text"
@@ -289,7 +289,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
             value={selectedLabel}
             onChange={e => setSelectedLabel(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') applyElementLabel(); }}
-            style={{ flex: 1, minWidth: 160 }}
+            style={{ flex: 1, minWidth: 120 }}
           />
           <button onClick={applyElementLabel} disabled={!selectedElementId}>Apply</button>
         </div>
@@ -301,7 +301,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
             placeholder="W"
             value={selectedWidth}
             onChange={e => setSelectedWidth(e.target.value === '' ? '' : Number(e.target.value))}
-            style={{ width: 80 }}
+            style={{ width: 64 }}
           />
           ×
           <input
@@ -310,9 +310,20 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
             placeholder="H"
             value={selectedHeight}
             onChange={e => setSelectedHeight(e.target.value === '' ? '' : Number(e.target.value))}
-            style={{ width: 80 }}
+            style={{ width: 64 }}
           />
           <button onClick={applyElementSize} disabled={!selectedElementId || selectedWidth === '' || selectedHeight === ''}>Apply</button>
+        </div>
+        <div style={{ flex: 1 }} />
+        {/* Undo/Redo + Zoom controls moved into top bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={undo} disabled={!canUndo} title="Undo (⌘/Ctrl+Z)">Undo</button>
+          <button onClick={redo} disabled={!canRedo} title="Redo (⇧+⌘/Ctrl+Z)">Redo</button>
+          <div style={{ width: 8 }} />
+          <button onClick={zoomOut} title="Zoom Out">-</button>
+          <button onClick={zoomReset} title="Reset Zoom">100%</button>
+          <button onClick={zoomIn} title="Zoom In">+</button>
+          <button onClick={zoomFit} title="Fit">Fit</button>
         </div>
       </div>
 
@@ -369,14 +380,6 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
 
         <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-          <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6, background: 'rgba(255,255,255,0.9)', border: '1px solid #ddd', borderRadius: 6, padding: '6px 8px' }}>
-            <button onClick={undo} disabled={!canUndo} title="Undo (⌘/Ctrl+Z)">Undo</button>
-            <button onClick={redo} disabled={!canRedo} title="Redo (⇧+⌘/Ctrl+Z)">Redo</button>
-            <button onClick={zoomOut} title="Zoom Out">-</button>
-            <button onClick={zoomReset} title="Reset Zoom">100%</button>
-            <button onClick={zoomIn} title="Zoom In">+</button>
-            <button onClick={zoomFit} title="Fit">Fit</button>
-          </div>
         </div>
       </div>
     </div>
