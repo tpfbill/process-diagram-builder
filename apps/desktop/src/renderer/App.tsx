@@ -96,6 +96,26 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         setSelectedHeight('');
       }
     });
+    // Auto-remove steps when their BPMN element is deleted from the canvas.
+    // We detect deletions generically after any modeling command by reconciling
+    // current element IDs against our step list.
+    eventBus.on('commandStack.changed', () => {
+      const elementRegistry = (m as any).get('elementRegistry');
+      const ids = new Set((elementRegistry.getAll() || []).map((el: any) => el.id));
+      const prevSteps = stepsRef.current;
+      const nextSteps = prevSteps.filter(s => ids.has(s.bpmnElementId));
+      if (nextSteps.length !== prevSteps.length) {
+        // Remove any recordings for now-missing steps
+        const removedIds = new Set(prevSteps.filter(s => !ids.has(s.bpmnElementId)).map(s => s.id));
+        setRecordings(r => {
+          const copy = { ...r } as Record<string, Blob>;
+          for (const k of Object.keys(copy)) if (removedIds.has(k)) delete copy[k];
+          return copy;
+        });
+        setSteps(nextSteps);
+        setManifest(updateTimestamp({ ...manifestRef.current, steps: nextSteps }));
+      }
+    });
     // When labels are edited inline on canvas, reflect into sidebar and auto-sync steps
     eventBus.on('element.changed', (e: any) => {
       const el = e && e.element;
