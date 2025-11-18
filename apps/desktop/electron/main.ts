@@ -230,11 +230,37 @@ ${cssFont}
       return opts;
     }
 
+    function computeNextIndex(){
+      var steps = data.manifest.steps||[];
+      if(current < 0 || current >= steps.length) return -1;
+      var cur = steps[current];
+      var el = elementRegistry().get(cur.bpmnElementId);
+      if(!el) return -1;
+      var t = el.type || (el.businessObject && el.businessObject.$type) || '';
+      if(/Gateway$/.test(String(t))) return -1; // choices UI handles gateways
+      var vis = {}; var hasEnd = false; var q = [];
+      var outs = (el.businessObject && el.businessObject.outgoing) || [];
+      outs.forEach(function(f){ if(f && f.targetRef) q.push(f.targetRef); });
+      while(q.length){
+        var n = q.shift(); if(!n || !n.id || vis[n.id]) continue; vis[n.id]=true;
+        var ty = n.$type || n.type || '';
+        if(/EndEvent$/.test(String(ty))) hasEnd = true;
+        var o = n.outgoing || [];
+        o.forEach(function(f){ if(f && f.targetRef) q.push(f.targetRef); });
+      }
+      for(var j=current+1;j<steps.length;j++){ if(vis[steps[j].bpmnElementId]) return j; }
+      return hasEnd ? -2 : -1;
+    }
+
     function showChoices(){
       var ctn = document.getElementById('choices');
       ctn.innerHTML = '';
       var opts = computeChoices();
-      if(!opts.length){ document.getElementById('next').disabled = false; return; }
+      if(!opts.length){
+        var ni = computeNextIndex();
+        document.getElementById('next').disabled = (ni < 0);
+        return;
+      }
       document.getElementById('next').disabled = true;
       var title = document.createElement('div'); title.textContent = 'Choose a path'; title.style.fontWeight = '600'; title.style.marginBottom = '6px';
       ctn.appendChild(title);
@@ -253,8 +279,8 @@ ${cssFont}
       return new Promise(function(res){ setTimeout(function(){ clearMarker(s); res(); }, s.durationMs||1000); });
     }
     document.getElementById('next').onclick = function(){
-      var steps = data.manifest.steps||[]; var idx = current+1;
-      if(idx < steps.length){ playStep(idx); }
+      var ni = computeNextIndex();
+      if(ni >= 0){ playStep(ni); }
     };
     viewer.importXML(data.xml).then(function(){ renderList(); canvas().zoom('fit-viewport'); }).catch(console.error);
   })();

@@ -12,7 +12,8 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
    const [viewer, setViewer] = useState<Viewer | null>(null);
    const [manifest, setManifest] = useState<ProjectManifest | null>(null);
    const [current, setCurrent] = useState<number>(-1);
-   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [finished, setFinished] = useState<boolean>(false);
   const [choices, setChoices] = useState<Array<{ label: string; to: number }>>([]);
   const getCanvas = () => (viewer as any)?.get('canvas');
   const zoomValue = () => getCanvas()?.zoom() ?? 1;
@@ -30,6 +31,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
  
    const loadFiles = async (files: FileList | null) => {
      if (!files) return;
+    setFinished(false);
      const fileMap = new Map<string, File>();
      Array.from(files).forEach(f => fileMap.set(f.name, f));
      const m = fileMap.get('manifest.json');
@@ -46,6 +48,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      const step = manifest.steps[idx];
      if (!step) return;
      setCurrent(idx);
+    setFinished(false);
     setChoices([]);
      const canvas = (viewer as any).get('canvas');
      canvas.zoom('fit-viewport');
@@ -63,7 +66,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
     canvas.removeMarker(step.bpmnElementId, 'current');
    };
  
-   const next = () => {
+  const next = () => {
     if (!manifest || !viewer) return;
     // If current is a gateway, present branch choices instead of blindly advancing
     const elementRegistry = (viewer as any).get('elementRegistry');
@@ -106,7 +109,34 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
         if (options.length) { setChoices(options); return; }
       }
     }
-    if (idx < steps.length) playStep(idx);
+    // Non-gateway: advance to the next reachable step along BPMN flow; if none and EndEvent is reachable, finish
+    const cur = steps[current];
+    if (!cur) return;
+    const curEl = elementRegistry.get(cur.bpmnElementId);
+    const computeReachableFrom = (startEl: any): { ids: Set<string>; hasEnd: boolean } => {
+      const ids = new Set<string>();
+      let hasEnd = false;
+      const q: any[] = [];
+      const outs: any[] = (startEl?.businessObject?.outgoing || []) as any[];
+      for (const f of outs) if (f?.targetRef) q.push(f.targetRef);
+      while (q.length) {
+        const n = q.shift();
+        if (!n?.id || ids.has(n.id)) continue;
+        ids.add(n.id);
+        const t: string | undefined = n.$type || n.type;
+        if (t && /EndEvent$/.test(t)) hasEnd = true;
+        const o: any[] = (n.outgoing || []) as any[];
+        for (const f of o) if (f?.targetRef) q.push(f.targetRef);
+      }
+      return { ids, hasEnd };
+    };
+    const reach = computeReachableFrom(curEl);
+    let to = -1;
+    for (let j = current + 1; j < steps.length; j++) {
+      if (reach.ids.has(steps[j].bpmnElementId)) { to = j; break; }
+    }
+    if (to >= 0) { playStep(to); return; }
+    if (reach.hasEnd) { setFinished(true); return; }
    };
  
    return (
@@ -125,7 +155,10 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
             </div>
           </div>
         )}
-        <button onClick={next} disabled={!manifest || choices.length > 0}>Next</button>
+        <button onClick={next} disabled={!manifest || choices.length > 0 || finished}>Next</button>
+        {finished && (
+          <div style={{ marginTop: 8, color: '#555' }}>Reached end</div>
+        )}
          <div>
            {manifest?.steps.map((s: StepMeta, i) => (
              <div key={s.id} style={{ padding: 6, background: i === current ? '#eef' : 'transparent' }}>
