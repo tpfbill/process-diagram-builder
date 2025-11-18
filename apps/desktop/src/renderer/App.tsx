@@ -256,7 +256,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const stopRecording = () => mediaRecorderRef.current?.stop();
  
   const saveProject = async () => {
-    const { xml } = await modelerRef.current!.saveXML({ format: true });
+    const res = await modelerRef.current!.saveXML({ format: true });
+    const xml = (res as any)?.xml ?? "";
     const audios = await Promise.all(
       steps.map(async s => {
         const blob = recordings[s.id];
