@@ -55,6 +55,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
+  const [popupText, setPopupText] = useState<string>("");
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -219,6 +220,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     for (const s of steps) {
       if (previewCancelRef.current) break;
       canvas.addMarker(s.bpmnElementId, 'current');
+      setPopupText(s.description || "");
       const blob = recordings[s.id];
       if (blob) {
         // stop any existing playback
@@ -249,6 +251,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         await delay(s.durationMs);
       }
       canvas.removeMarker(s.bpmnElementId, 'current');
+      setPopupText("");
     }
     setPreviewing(false);
   };
@@ -259,6 +262,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       playAudioRef.current = null;
     }
     setPreviewing(false);
+    setPopupText("");
   };
  
   const onCanvasClick = async () => {};
@@ -493,6 +497,21 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
                   <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
                   <button onClick={() => playRecording(s.id)} disabled={!recordings[s.id]} style={{ marginLeft: 8 }}>Play</button>
                 </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 4 }}>Popup Text (optional)</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Shown during this step"
+                    value={s.description || ''}
+                    onChange={e => {
+                      const v = e.target.value;
+                      const next = steps.map(x => x.id === s.id ? { ...x, description: v } : x);
+                      setSteps(next);
+                      setManifest(updateTimestamp({ ...manifest, steps: next }));
+                    }}
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -500,6 +519,11 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
 
         <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+          {popupText && (
+            <div style={{ position: 'absolute', left: 12, bottom: 12, maxWidth: 420, background: 'rgba(255,255,255,0.95)', border: '1px solid #ddd', borderRadius: 8, padding: '10px 12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', whiteSpace: 'pre-wrap' }}>
+              {popupText}
+            </div>
+          )}
         </div>
       </div>
     </div>

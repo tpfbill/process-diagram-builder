@@ -157,6 +157,7 @@ ${cssFont}
     .step { padding: 6px; }
     .step.current { background: #eef; }
     button { cursor: pointer; }
+    #popup { position: absolute; left: 12px; bottom: 12px; max-width: 420px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); white-space: pre-wrap; display: none; }
   </style>
 </head>
 <body>
@@ -173,6 +174,7 @@ ${cssFont}
         <button id="zoomIn">+</button>
         <button id="zoomFit">Fit</button>
       </div>
+      <div id="popup"></div>
     </div>
   </div>
   <script>${viewerJs}</script>
@@ -190,7 +192,9 @@ ${cssFont}
     document.getElementById('zoomReset').onclick = function(){ setZoom(1); };
     document.getElementById('zoomFit').onclick = function(){ try { canvas().zoom('fit-viewport'); } catch(e){} };
 
-    var current = -1; var audio = null;
+    var current = -1; var audio = null; var popup = document.getElementById('popup');
+    function showPopup(text){ if(!popup) return; popup.textContent = text || ''; popup.style.display = text ? 'block' : 'none'; }
+    function hidePopup(){ if(!popup) return; popup.style.display = 'none'; popup.textContent = ''; }
     function renderList(){
       var list = document.getElementById('list');
       list.innerHTML = '';
@@ -204,10 +208,11 @@ ${cssFont}
     function playStep(idx){
       var s = (data.manifest.steps||[])[idx]; if(!s) return Promise.resolve();
       current = idx; renderList(); addMarker(s);
+      showPopup(s && s.description || '');
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); res(); }; audio.onerror=function(){ clearMarker(s); res(); }; audio.play().catch(function(){ clearMarker(s); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); hidePopup(); res(); }; audio.onerror=function(){ clearMarker(s); hidePopup(); res(); }; audio.play().catch(function(){ clearMarker(s); hidePopup(); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); hidePopup(); res(); }, s.durationMs||1000); });
     }
     document.getElementById('next').onclick = function(){ var i=current+1; if((data.manifest.steps||[]).length>i){ playStep(i); } };
     viewer.importXML(data.xml).then(function(){ renderList(); canvas().zoom('fit-viewport'); }).catch(console.error);

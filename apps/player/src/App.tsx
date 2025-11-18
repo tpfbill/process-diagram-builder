@@ -15,6 +15,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
    const [manifest, setManifest] = useState<ProjectManifest | null>(null);
    const [current, setCurrent] = useState<number>(-1);
    const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [showPopup, setShowPopup] = useState<boolean>(false);
   const [projects, setProjects] = useState<ProjectIndexItem[]>([]);
   const [projectSlug, setProjectSlug] = useState<string>("");
   const getCanvas = () => (viewer as any)?.get('canvas');
@@ -62,6 +63,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      const step = manifest.steps[idx];
      if (!step) return;
      setCurrent(idx);
+    setShowPopup(!!step.description);
      const canvas = (viewer as any).get('canvas');
      canvas.zoom('fit-viewport');
     canvas.addMarker(step.bpmnElementId, 'current');
@@ -79,8 +81,9 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      const a = audioUrl ? new Audio(audioUrl) : null;
      setAudio(a);
      try { await a?.play(); } catch {}
-     await new Promise(r => setTimeout(r, step.durationMs));
+    await new Promise(r => setTimeout(r, step.durationMs));
     canvas.removeMarker(step.bpmnElementId, 'current');
+    setShowPopup(false);
    };
  
    const next = () => {
@@ -139,6 +142,11 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
           <button onClick={zoomIn} title="Zoom In">+</button>
           <button onClick={zoomFit} title="Fit">Fit</button>
         </div>
+        {showPopup && manifest && current >= 0 && manifest.steps[current]?.description && (
+          <div style={{ position: 'absolute', left: 12, bottom: 12, maxWidth: 420, background: 'rgba(255,255,255,0.95)', border: '1px solid #ddd', borderRadius: 8, padding: '10px 12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', whiteSpace: 'pre-wrap' }}>
+            {manifest.steps[current].description}
+          </div>
+        )}
        </div>
      </div>
    );
