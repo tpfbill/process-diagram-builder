@@ -279,6 +279,8 @@ ${cssFont}
       return new Promise(function(res){ setTimeout(function(){ clearMarker(s); res(); }, s.durationMs||1000); });
     }
     document.getElementById('next').onclick = function(){
+      var steps = (data.manifest && data.manifest.steps) || [];
+      if(current < 0 && steps.length){ playStep(0); return; }
       var ni = computeNextIndex();
       if(ni >= 0){ playStep(ni); }
     };
