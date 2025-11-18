@@ -4,6 +4,18 @@ import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-js.css';
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
 import Modeler from 'bpmn-js/lib/Modeler';
+// Explicitly include navigation + resize modules to ensure resizer handles are available
+// and panning/zooming work as expected.
+// These are included by default in Modeler, but we wire them to be safe and to enable keyboard binding.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import ZoomScrollModule from 'diagram-js/lib/navigation/zoomscroll';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import MoveCanvasModule from 'diagram-js/lib/navigation/movecanvas';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import ResizeModule from 'diagram-js/lib/features/resize';
  import { ProjectManifest, StepMeta, createEmptyManifest, updateTimestamp } from '@pdb/core';
  
  declare global {
@@ -32,7 +44,11 @@ import Modeler from 'bpmn-js/lib/Modeler';
   const previewCancelRef = useRef<boolean>(false);
  
   useEffect(() => {
-    const m = new Modeler({ container: containerRef.current! });
+    const m = new Modeler({
+      container: containerRef.current!,
+      additionalModules: [ZoomScrollModule, MoveCanvasModule, ResizeModule],
+      keyboard: { bindTo: document }
+    });
     modelerRef.current = m;
     // Initialize with an empty diagram so the canvas and palette render
     m.createDiagram();

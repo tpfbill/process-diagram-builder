@@ -8,3 +8,15 @@
   stroke-width: 8px !important;
   filter: drop-shadow(0 0 2px rgba(13,71,161,0.5));
 }
+
+/* Make selection outline and resize handles more visible */
+.djs-outline {
+  stroke: #0d47a1 !important;
+  stroke-width: 1.5px !important;
+}
+
+/* Cover common handle class names used by diagram-js */
+.djs-resizer, .djs-resize-handle, .djs-resizer-handle, .djs-resizer-rect {
+  stroke: #0d47a1 !important;
+  fill: #ffffff !important;
+}
