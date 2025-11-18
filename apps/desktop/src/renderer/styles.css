@@ -5,6 +5,6 @@
 
 .djs-element.current > .djs-visual > :nth-child(1) {
   stroke: #0d47a1 !important; /* darker */
-  stroke-width: 4px !important;
+  stroke-width: 8px !important;
   filter: drop-shadow(0 0 2px rgba(13,71,161,0.5));
 }
