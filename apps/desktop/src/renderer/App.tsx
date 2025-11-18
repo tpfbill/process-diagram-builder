@@ -44,6 +44,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [recordings, setRecordings] = useState<Record<string, Blob>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const playAudioRef = useRef<HTMLAudioElement | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
   const [selectedWidth, setSelectedWidth] = useState<number | ''>('');
@@ -254,6 +255,29 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   };
  
   const stopRecording = () => mediaRecorderRef.current?.stop();
+
+  const playRecording = (stepId: string) => {
+    try {
+      const blob = recordings[stepId];
+      if (!blob) return;
+      // stop any existing playback
+      if (playAudioRef.current) {
+        try { playAudioRef.current.pause(); } catch {}
+        playAudioRef.current = null;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = new Audio(url);
+      playAudioRef.current = a;
+      a.onended = () => {
+        URL.revokeObjectURL(url);
+        playAudioRef.current = null;
+      };
+      a.play().catch(() => {
+        URL.revokeObjectURL(url);
+        playAudioRef.current = null;
+      });
+    } catch {}
+  };
  
   const saveProject = async () => {
     const res = await modelerRef.current!.saveXML({ format: true });
@@ -373,6 +397,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
                 <div>
                   <button onClick={() => startRecording(s.id)}>Record</button>
                   <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
+                  <button onClick={() => playRecording(s.id)} disabled={!recordings[s.id]} style={{ marginLeft: 8 }}>Play</button>
                 </div>
               </div>
             ))}
