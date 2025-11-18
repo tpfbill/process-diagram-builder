@@ -6,10 +6,10 @@
   "main": "dist-electron/main/main.cjs",
   "scripts": {
     "dev": "npm-run-all -p dev:renderer dev:preload dev:main dev:electron",
-    "dev:renderer": "vite",
+    "dev:renderer": "vite --port=5174 --strictPort",
     "dev:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/main --sourcemap --watch --log-level=info --out-extension:.js=.cjs",
     "dev:preload": "esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/preload --sourcemap --watch --log-level=info --out-extension:.js=.cjs",
-    "dev:electron": "wait-on tcp:5173 && nodemon -V -e cjs -w dist-electron/main/main.cjs -x \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 npx electron dist-electron/main/main.cjs\"",
+    "dev:electron": "wait-on tcp:5174 && nodemon -V -e cjs -w dist-electron/main/main.cjs -x \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 npx electron dist-electron/main/main.cjs\"",
     "build": "vite build",
     "preview": "vite preview"
   },
