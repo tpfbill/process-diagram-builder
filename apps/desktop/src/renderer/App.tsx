@@ -45,20 +45,33 @@ import Modeler from 'bpmn-js/lib/Modeler';
         setSelectedLabel("");
       }
     });
-    // When labels are edited inline on canvas, reflect into sidebar
+    // When labels are edited inline on canvas, reflect into sidebar and auto-sync steps
     eventBus.on('element.changed', (e: any) => {
       const el = e && e.element;
       if (!el) return;
       const cur = selectedIdRef.current;
+      const name = el.businessObject && el.businessObject.name;
       if (cur && el.id === cur) {
-        const name = el.businessObject && el.businessObject.name;
         setSelectedLabel(name || "");
+      }
+      // Auto-sync any steps that reference this BPMN element
+      if (el.id) {
+        const next = stepsRef.current.map(s => s.bpmnElementId === el.id ? { ...s, label: name || s.label } : s);
+        const changed = JSON.stringify(next) !== JSON.stringify(stepsRef.current);
+        if (changed) {
+          setSteps(next);
+          setManifest(updateTimestamp({ ...manifestRef.current, steps: next }));
+        }
       }
     });
     return () => m.destroy();
   }, []);
 
   useEffect(() => { selectedIdRef.current = selectedElementId; }, [selectedElementId]);
+  const manifestRef = useRef(manifest);
+  const stepsRef = useRef(steps);
+  useEffect(() => { manifestRef.current = manifest; }, [manifest]);
+  useEffect(() => { stepsRef.current = steps; }, [steps]);
  
   const addStep = () => {
     if (!selectedElementId) return;
@@ -118,9 +131,9 @@ import Modeler from 'bpmn-js/lib/Modeler';
     const canvas = (modelerRef.current as any).get('canvas');
     for (const s of steps) {
       if (previewCancelRef.current) break;
-      canvas.addMarker(s.bpmnElementId, 'highlight');
+      canvas.addMarker(s.bpmnElementId, 'current');
       await delay(s.durationMs);
-      canvas.removeMarker(s.bpmnElementId, 'highlight');
+      canvas.removeMarker(s.bpmnElementId, 'current');
     }
     setPreviewing(false);
   };

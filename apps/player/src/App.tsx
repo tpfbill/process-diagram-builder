@@ -40,7 +40,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      setCurrent(idx);
      const canvas = (viewer as any).get('canvas');
      canvas.zoom('fit-viewport');
-     canvas.addMarker(step.bpmnElementId, 'highlight');
+    canvas.addMarker(step.bpmnElementId, 'current');
      const audioFile = step.audioFile && (document.getElementById('file-input') as HTMLInputElement)?.files;
      let audioUrl: string | undefined;
      if (audioFile) {
@@ -51,7 +51,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      setAudio(a);
      a?.play();
      await new Promise(r => setTimeout(r, step.durationMs));
-     canvas.removeMarker(step.bpmnElementId, 'highlight');
+    canvas.removeMarker(step.bpmnElementId, 'current');
    };
  
    const next = () => {
