@@ -16,6 +16,16 @@ import MoveCanvasModule from 'diagram-js/lib/navigation/movecanvas';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ResizeModule from 'diagram-js/lib/features/resize';
+// Ensure create/drag/palette are present and active
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import CreateModule from 'diagram-js/lib/features/create';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import DraggingModule from 'diagram-js/lib/features/dragging';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import PaletteModule from 'bpmn-js/lib/features/palette';
  import { ProjectManifest, StepMeta, createEmptyManifest, updateTimestamp } from '@pdb/core';
  
  declare global {
@@ -48,7 +58,14 @@ import ResizeModule from 'diagram-js/lib/features/resize';
   useEffect(() => {
     const m = new Modeler({
       container: containerRef.current!,
-      additionalModules: [ZoomScrollModule, MoveCanvasModule, ResizeModule],
+      additionalModules: [
+        ZoomScrollModule,
+        MoveCanvasModule,
+        ResizeModule,
+        CreateModule,
+        DraggingModule,
+        PaletteModule
+      ],
       keyboard: { bindTo: document }
     });
     modelerRef.current = m;

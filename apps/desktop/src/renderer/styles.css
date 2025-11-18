@@ -28,3 +28,9 @@
 .djs-selected .djs-resizer-rect {
   display: block !important;
 }
+
+/* Palette usability: keep it within viewport and allow scroll */
+.djs-palette {
+  max-height: calc(100% - 24px);
+  overflow: auto;
+}
