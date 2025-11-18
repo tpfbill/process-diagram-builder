@@ -1,0 +1,21 @@
+{
+  "name": "process-diagram-builder",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "workspaces": [
+    "apps/desktop",
+    "apps/player",
+    "packages/core"
+  ],
+  "scripts": {
+    "build": "npm run -w packages/core build && npm run -w apps/player build && npm run -w apps/desktop build",
+    "dev:desktop": "npm run -w apps/desktop dev",
+    "dev:player": "npm run -w apps/player dev",
+    "format": "prettier -w .",
+    "typecheck": "tsc -b -v"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

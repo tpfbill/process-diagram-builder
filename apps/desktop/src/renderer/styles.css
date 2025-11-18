@@ -1,0 +1,36 @@
+ .djs-element.highlight > .djs-visual > :nth-child(1) {
+   stroke: #1976d2 !important;
+   stroke-width: 3px !important;
+ }
+
+.djs-element.current > .djs-visual > :nth-child(1) {
+  stroke: #0d47a1 !important; /* darker */
+  stroke-width: 8px !important;
+  filter: drop-shadow(0 0 2px rgba(13,71,161,0.5));
+}
+
+/* Make selection outline and resize handles more visible */
+.djs-outline {
+  stroke: #0d47a1 !important;
+  stroke-width: 1.5px !important;
+}
+
+/* Cover common handle class names used by diagram-js */
+.djs-resizer, .djs-resize-handle, .djs-resizer-handle, .djs-resizer-rect {
+  stroke: #0d47a1 !important;
+  fill: #ffffff !important;
+}
+
+/* Force handles visible when selected (in case defaults are overridden) */
+.djs-selected .djs-resizer,
+.djs-selected .djs-resize-handle,
+.djs-selected .djs-resizer-handle,
+.djs-selected .djs-resizer-rect {
+  display: block !important;
+}
+
+/* Palette usability: keep it within viewport and allow scroll */
+.djs-palette {
+  max-height: calc(100% - 24px);
+  overflow: auto;
+}
