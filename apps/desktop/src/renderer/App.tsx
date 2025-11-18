@@ -46,6 +46,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [recordings, setRecordings] = useState<Record<string, Blob>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const playbackRef = useRef<HTMLAudioElement | null>(null);
+  const playbackUrlRef = useRef<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
   const [selectedWidth, setSelectedWidth] = useState<number | ''>('');
@@ -119,6 +121,20 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       }
     });
     return () => m.destroy();
+  }, []);
+
+  // Cleanup any playing audio on unmount
+  useEffect(() => {
+    return () => {
+      if (playbackRef.current) {
+        try { playbackRef.current.pause(); } catch {}
+      }
+      if (playbackUrlRef.current) {
+        try { URL.revokeObjectURL(playbackUrlRef.current); } catch {}
+      }
+      playbackRef.current = null;
+      playbackUrlRef.current = null;
+    };
   }, []);
 
   useEffect(() => { selectedIdRef.current = selectedElementId; }, [selectedElementId]);
@@ -198,13 +214,19 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     for (const s of steps) {
       if (previewCancelRef.current) break;
       canvas.addMarker(s.bpmnElementId, 'current');
-      await delay(s.durationMs);
+      const blob = recordings[s.id];
+      if (blob) {
+        await playBlob(blob);
+      } else {
+        await delay(s.durationMs);
+      }
       canvas.removeMarker(s.bpmnElementId, 'current');
     }
     setPreviewing(false);
   };
   const stopPreview = () => {
     previewCancelRef.current = true;
+    stopPlayback();
     setPreviewing(false);
   };
  
@@ -256,6 +278,36 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   };
  
   const stopRecording = () => mediaRecorderRef.current?.stop();
+
+  const stopPlayback = () => {
+    if (playbackRef.current) {
+      try { playbackRef.current.pause(); } catch {}
+    }
+    if (playbackUrlRef.current) {
+      try { URL.revokeObjectURL(playbackUrlRef.current); } catch {}
+    }
+    playbackRef.current = null;
+    playbackUrlRef.current = null;
+  };
+
+  const playBlob = async (blob: Blob) => {
+    stopPlayback();
+    const url = URL.createObjectURL(blob);
+    playbackUrlRef.current = url;
+    const a = new Audio(url);
+    playbackRef.current = a;
+    await new Promise<void>((resolve) => {
+      a.onended = () => resolve();
+      a.onerror = () => resolve();
+      a.play().catch(() => resolve());
+    });
+  };
+
+  const playRecording = async (stepId: string) => {
+    const blob = recordings[stepId];
+    if (!blob) return;
+    await playBlob(blob);
+  };
  
   const saveProject = async () => {
     const { xml } = await modelerRef.current!.saveXML({ format: true });
@@ -415,6 +467,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
                 <div>
                   <button onClick={() => startRecording(s.id)}>Record</button>
                   <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
+                  <button onClick={() => playRecording(s.id)} style={{ marginLeft: 8 }} disabled={!recordings[s.id]}>Play</button>
                 </div>
               </div>
             ))}
