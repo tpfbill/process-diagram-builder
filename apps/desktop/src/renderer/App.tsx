@@ -130,7 +130,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     const id = `${Date.now()}`;
     const s: StepMeta = {
       id,
-      label: selectedLabel || selectedElementId,
+      label: selectedLabel.trim() ? selectedLabel : (selectedElementId ?? ""),
       bpmnElementId: selectedElementId,
       durationMs: 2000
     };
