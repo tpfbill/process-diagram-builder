@@ -408,7 +408,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       var title = document.createElement('div'); title.textContent = 'Choose a path'; title.style.fontWeight = '600'; title.style.marginBottom = '6px';
       ctn.appendChild(title);
       opts.forEach(function(o){
-        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; try { markTransition(current, o.to); } catch(e){}; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
+        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; try { var stepsArr = (data.manifest && data.manifest.steps) || []; if(current>=0 && current < stepsArr.length) clearMarker(stepsArr[current]); } catch(e){}; try { markTransition(current, o.to); } catch(e){}; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
         ctn.appendChild(b);
       });
     }
@@ -426,8 +426,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       showPopup(s && s.description || '');
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
     }
 
     function resetAll(){
@@ -467,7 +467,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       var steps = (data.manifest && data.manifest.steps) || [];
       if(current < 0 && steps.length){ playStep(0); return; }
       var ni = computeNextIndex();
-      if(ni >= 0){ try { markTransition(current, ni); } catch(e){}; playStep(ni); }
+      if(ni >= 0){ try { if(current>=0 && current < steps.length) clearMarker(steps[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; playStep(ni); }
     };
     var running = false; var runVisited = {};
     function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
@@ -489,7 +489,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
             await waitForChoice();
           } else {
             var ni = computeNextIndex();
-            if(ni >= 0){ try { markTransition(current, ni); } catch(e){}; await playStep(ni); }
+            if(ni >= 0){ try { var stepsArr2 = (data.manifest && data.manifest.steps) || []; if(current>=0 && current < stepsArr2.length) clearMarker(stepsArr2[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; await playStep(ni); }
             else {
               // If EndEvent reachable but no explicit step exists for it, briefly highlight the EndEvent then finish
               var endId = findReachableEndId();
