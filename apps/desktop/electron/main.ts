@@ -253,7 +253,19 @@ ${cssFont}
         var o = n.outgoing || [];
         o.forEach(function(f){ if(f && f.targetRef) q.push(f.targetRef); });
       }
-      for(var j=current+1;j<steps.length;j++){ if(vis[steps[j].bpmnElementId]) return j; }
+      for(var j=current+1;j<steps.length;j++){
+        if(vis[steps[j].bpmnElementId]){
+          if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j]) continue;
+          return j;
+        }
+      }
+      // Fallback: allow wrap-around (manifest order may not match graph path)
+      for(var j2=0;j2<steps.length;j2++){
+        if(j2!==current && vis[steps[j2].bpmnElementId]){
+          if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j2]) continue;
+          return j2;
+        }
+      }
       return hasEnd ? -2 : -1;
     }
 
@@ -297,7 +309,7 @@ ${cssFont}
 
     function playStep(idx){
       var s = (data.manifest.steps||[])[idx]; if(!s) return Promise.resolve();
-      current = idx; renderList(); addMarker(s); showChoices();
+      current = idx; try { if(running && typeof runVisited !== 'undefined') runVisited[idx] = true; } catch(e){}; renderList(); addMarker(s); showChoices();
       showPopup(s && s.description || '');
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
@@ -316,7 +328,7 @@ ${cssFont}
       current = -1; renderList();
       var nextBtn = document.getElementById('next'); if(nextBtn) nextBtn.disabled = false;
       var runBtn = document.getElementById('run'); if(runBtn) runBtn.disabled = false;
-      choiceResolve = null;
+      choiceResolve = null; try { if(typeof runVisited !== 'undefined') runVisited = {}; } catch(e){}
     }
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
@@ -324,12 +336,12 @@ ${cssFont}
       var ni = computeNextIndex();
       if(ni >= 0){ playStep(ni); }
     };
-    var running = false;
+    var running = false; var runVisited = {};
     function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
     document.getElementById('run').onclick = async function(){
       if(running) return;
       // ensure a full reset before running again
-      resetAll();
+      resetAll(); try { runVisited = {}; } catch(e){}
       running = true;
       var runBtn = document.getElementById('run');
       var nextBtn = document.getElementById('next');
