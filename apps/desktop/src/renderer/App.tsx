@@ -59,7 +59,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   // Track visited elements/flows during preview to leave a trail
   const visitedElsRef = useRef<Set<string>>(new Set());
   const visitedFlowsRef = useRef<Set<string>>(new Set());
-  const origArrowRef = useRef<Map<string, string>>(new Map());
+  const origArrowRef = useRef<Map<string, { attr?: string; style?: string }>>(new Map());
   const [previewChoices, setPreviewChoices] = useState<Array<{ label: string; to: number }>>([]);
   const choiceResolverRef = useRef<((to: number) => void) | null>(null);
   const [previewText, setPreviewText] = useState<string>("");
@@ -235,9 +235,11 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
           const gfx: SVGGElement | null = canvas.getGraphics(id);
           const path: SVGPathElement | null = gfx ? (gfx.querySelector('path.djs-connection-path') as SVGPathElement) : null;
           if (path) {
-            const orig = path.getAttribute('marker-end') || '';
-            if (!origArrowRef.current.has(id)) origArrowRef.current.set(id, orig);
+            const origAttr = path.getAttribute('marker-end') || '';
+            const origStyle = (path.style as any)?.markerEnd || '';
+            if (!origArrowRef.current.has(id)) origArrowRef.current.set(id, { attr: origAttr, style: origStyle });
             path.setAttribute('marker-end', 'url(#pdb-visited-arrow)');
+            try { (path.style as any).markerEnd = 'url(#pdb-visited-arrow)'; } catch {}
           }
         }
       } catch {}
@@ -254,7 +256,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         const path: SVGPathElement | null = gfx ? (gfx.querySelector('path.djs-connection-path') as SVGPathElement) : null;
         if (path) {
           const orig = origArrowRef.current.get(id);
-          if (orig && orig.length) path.setAttribute('marker-end', orig);
+          if (orig?.attr !== undefined) path.setAttribute('marker-end', orig.attr);
+          try { (path.style as any).markerEnd = orig?.style || ''; } catch {}
         }
       } catch {}
       try { canvas.removeMarker(id, 'visited'); } catch {}
@@ -276,6 +279,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     marker.setAttribute('refY', '10');
     marker.setAttribute('markerWidth', '6');  // ~1/3 of typical 18-20
     marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('markerUnits', 'userSpaceOnUse');
     marker.setAttribute('orient', 'auto');
     const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     p.setAttribute('d', 'M 1 5 L 11 10 L 1 15 Z');

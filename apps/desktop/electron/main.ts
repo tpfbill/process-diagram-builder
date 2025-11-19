@@ -246,6 +246,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         marker.setAttribute('refY','10');
         marker.setAttribute('markerWidth','6');
         marker.setAttribute('markerHeight','6');
+        marker.setAttribute('markerUnits','userSpaceOnUse');
         marker.setAttribute('orient','auto');
         var p = document.createElementNS('http://www.w3.org/2000/svg','path');
         p.setAttribute('d','M 1 5 L 11 10 L 1 15 Z');
@@ -266,8 +267,10 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
           var path = gfx && gfx.querySelector && gfx.querySelector('path.djs-connection-path');
           if(path){
             var m = path.getAttribute('marker-end') || '';
-            if(!origArrow[id]) origArrow[id] = m;
+            var s = (path.style && path.style.markerEnd) || '';
+            if(!origArrow[id]) origArrow[id] = { attr: m, style: s };
             path.setAttribute('marker-end','url(#pdb-visited-arrow)');
+            try { path.style.markerEnd = 'url(#pdb-visited-arrow)'; } catch(e){}
           }
         } catch(e){}
       } catch(e){}
@@ -453,7 +456,16 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
           // restore original arrowhead if we changed it
           var gfx = canvas().getGraphics(id);
           var path = gfx && gfx.querySelector && gfx.querySelector('path.djs-connection-path');
-          if(path && origArrow && origArrow[id] !== undefined){ path.setAttribute('marker-end', String(origArrow[id])); }
+          if(path && origArrow && origArrow[id] !== undefined){
+            var o = origArrow[id];
+            if(o && typeof o === 'object'){
+              if(o.attr !== undefined) path.setAttribute('marker-end', String(o.attr));
+              try { path.style.markerEnd = o.style || ''; } catch(e){}
+            } else {
+              path.setAttribute('marker-end', String(origArrow[id]));
+              try { path.style.markerEnd = ''; } catch(e){}
+            }
+          }
           canvas().removeMarker(id,'visited');
         } catch(e){} });
         visitedEls = {}; visitedFlows = {}; origArrow = {};
