@@ -152,14 +152,6 @@ ${cssFont}
 .djs-element.visited .djs-visual > :nth-child(1) { stroke: #64b5f6 !important; stroke-width: 6px !important; }
 /* Ensure diagram text is readable on light/dark backgrounds */
 svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255,255,0.9); stroke-width: 2px; }
-/* Dark mode: improve baseline connector visibility */
-@media (prefers-color-scheme: dark) {
-  .djs-connection .djs-visual > path {
-    stroke: #90caf9 !important; /* light blue for contrast */
-    stroke-width: 3px !important; /* slightly thicker for legibility */
-    opacity: 0.95;
-  }
-}
 `;
 
     const html = `<!doctype html>
@@ -169,7 +161,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Process Player</title>
   <style>${customCss}</style>
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="light" />
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
     .wrap { display: flex; height: 100vh; }
@@ -180,16 +172,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     .step.current { background: #eef; }
     button { cursor: pointer; }
     #popup { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 12px 14px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,0.12); max-height: 40%; overflow: auto; display: none; }
-
-    /* Dark mode adjustments */
-    @media (prefers-color-scheme: dark) {
-      body { background: #111; color: #eee; }
-      .sidebar { border-right-color: #333; color: #eee; }
-      .toolbar { background: rgba(20,20,20,0.9); border-color: #333; }
-      .step.current { background: #223; }
-      #popup { background: rgba(20,20,20,0.95); border-color: #333; color: #eee; }
-      button { color: #eee; }
-    }
+    /* Force light mode visuals regardless of OS theme */
+    html { color-scheme: light; }
   </style>
 </head>
 <body>
