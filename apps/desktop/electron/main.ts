@@ -398,6 +398,11 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
           // Do NOT reset in manual mode so the highlight persists until a button is pressed.
           // In running mode, let the loop decide.
           if(running){ return; }
+          // Re-assert current marker on the final step to guard against any incidental clears
+          try {
+            var stepsArr0 = (data.manifest && data.manifest.steps) || [];
+            if(current>=0 && current < stepsArr0.length) addMarker(stepsArr0[current]);
+          } catch(e){}
           if(nextBtn) nextBtn.disabled = false;
           if(runBtn) runBtn.disabled = false;
           return;
