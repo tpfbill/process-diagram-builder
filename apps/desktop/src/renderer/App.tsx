@@ -233,7 +233,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         if (svg) {
           ensureVisitedArrowMarker(svg);
           const gfx: SVGGElement | null = canvas.getGraphics(id);
-          const path: SVGPathElement | null = gfx ? (gfx.querySelector('path.djs-connection-path') as SVGPathElement) : null;
+          const path: SVGPathElement | null = gfx ? ((gfx.querySelector('path.djs-visual') || gfx.querySelector('path')) as SVGPathElement) : null;
           if (path) {
             const origAttr = path.getAttribute('marker-end') || '';
             const origStyle = (path.style as any)?.markerEnd || '';
@@ -253,7 +253,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       try {
         // Restore original arrowhead
         const gfx: SVGGElement | null = canvas.getGraphics(id);
-        const path: SVGPathElement | null = gfx ? (gfx.querySelector('path.djs-connection-path') as SVGPathElement) : null;
+        const path: SVGPathElement | null = gfx ? ((gfx.querySelector('path.djs-visual') || gfx.querySelector('path')) as SVGPathElement) : null;
         if (path) {
           const orig = origArrowRef.current.get(id);
           if (orig?.attr !== undefined) path.setAttribute('marker-end', orig.attr);

@@ -264,7 +264,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         ensureVisitedArrowMarker();
         try {
           var gfx = canvas().getGraphics(id);
-          var path = gfx && gfx.querySelector && gfx.querySelector('path.djs-connection-path');
+          var path = gfx && gfx.querySelector && (gfx.querySelector('path.djs-visual') || gfx.querySelector('path'));
           if(path){
             var m = path.getAttribute('marker-end') || '';
             var s = (path.style && path.style.markerEnd) || '';
@@ -455,7 +455,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         Object.keys(visitedFlows||{}).forEach(function(id){ try {
           // restore original arrowhead if we changed it
           var gfx = canvas().getGraphics(id);
-          var path = gfx && gfx.querySelector && gfx.querySelector('path.djs-connection-path');
+          var path = gfx && gfx.querySelector && (gfx.querySelector('path.djs-visual') || gfx.querySelector('path'));
           if(path && origArrow && origArrow[id] !== undefined){
             var o = origArrow[id];
             if(o && typeof o === 'object'){
