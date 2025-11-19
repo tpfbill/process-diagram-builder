@@ -1,10 +1,10 @@
  .djs-element.highlight > .djs-visual > :nth-child(1) {
    stroke: #1976d2 !important;
-   stroke-width: 3px !important;
+  stroke-width: 6px !important;
  }
 
 .djs-element.current > .djs-visual > :nth-child(1) {
   stroke: #0d47a1 !important; /* darker */
-  stroke-width: 8px !important;
+  stroke-width: 16px !important;
   filter: drop-shadow(0 0 2px rgba(13,71,161,0.5));
 }
