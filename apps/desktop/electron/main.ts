@@ -150,6 +150,11 @@ ${cssFont}
 .djs-element.current .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; fill: rgba(25,118,210,0.12) !important; }
 /* Visited trail */
 .djs-element.visited .djs-visual > :nth-child(1) { stroke: #64b5f6 !important; stroke-width: 6px !important; }
+/* Ensure current wins over visited when both are present (persist bold highlight) */
+.djs-element.current.visited .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; }
+/* Final (sticky) highlight that persists until user action */
+.djs-element.current-final .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; fill: rgba(25,118,210,0.12) !important; }
+.djs-element.current-final.visited .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; }
 /* Ensure diagram text is readable on light/dark backgrounds */
 svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255,255,0.9); stroke-width: 2px; }
 `;
@@ -161,7 +166,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Process Player</title>
   <style>${customCss}</style>
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="light" />
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
     .wrap { display: flex; height: 100vh; }
@@ -172,16 +177,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     .step.current { background: #eef; }
     button { cursor: pointer; }
     #popup { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 12px 14px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,0.12); max-height: 40%; overflow: auto; display: none; }
-
-    /* Dark mode adjustments */
-    @media (prefers-color-scheme: dark) {
-      body { background: #111; color: #eee; }
-      .sidebar { border-right-color: #333; color: #eee; }
-      .toolbar { background: rgba(20,20,20,0.9); border-color: #333; }
-      .step.current { background: #223; }
-      #popup { background: rgba(20,20,20,0.95); border-color: #333; color: #eee; }
-      button { color: #eee; }
-    }
+    /* Force light mode visuals regardless of OS theme */
+    html { color-scheme: light; }
   </style>
 </head>
 <body>
@@ -221,7 +218,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     document.getElementById('zoomReset').onclick = function(){ setZoom(1); };
     document.getElementById('zoomFit').onclick = function(){ try { canvas().zoom('fit-viewport'); } catch(e){} };
 
-    var current = -1; var audio = null;
+    var current = -1; var audio = null; var finalId = null;
     function renderList(){
       var list = document.getElementById('list');
       list.innerHTML = '';
@@ -232,6 +229,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     }
     function clearMarker(s){ try { canvas().removeMarker(s.bpmnElementId,'current'); } catch(e){} }
     function addMarker(s){ try { canvas().addMarker(s.bpmnElementId,'current'); canvas().zoom('fit-viewport'); } catch(e){} }
+    function addFinalMarkerById(id){ if(!id) return; try { canvas().addMarker(id,'current-final'); } catch(e){} }
+    function clearFinalMarker(){ if(finalId){ try { canvas().removeMarker(finalId,'current-final'); } catch(e){} finalId = null; } }
     var visitedEls = {}; var visitedFlows = {}; var origArrow = {};
     function ensureVisitedArrowMarker(){
       try {
@@ -400,14 +399,18 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         var nextBtn = document.getElementById('next');
         var runBtn = document.getElementById('run');
         if(ni < 0){
-          // finished
-          if(running){
-            // when running, let the loop handle final reset
-            return;
-          } else {
-            resetAll();
-            return;
-          }
+          // Finished (EndEvent or no next)
+          // Do NOT reset in manual mode so the highlight persists until a button is pressed.
+          // In running mode, let the loop decide.
+          if(running){ return; }
+          // Persist sticky highlight using a dedicated marker that we only clear on button press
+          try {
+            var stepsArr0 = (data.manifest && data.manifest.steps) || [];
+            if(current>=0 && current < stepsArr0.length){ finalId = stepsArr0[current].bpmnElementId; addFinalMarkerById(finalId); }
+          } catch(e){}
+          if(nextBtn) nextBtn.disabled = false;
+          if(runBtn) runBtn.disabled = false;
+          return;
         }
         if(!running && nextBtn) nextBtn.disabled = false;
         return;
@@ -416,7 +419,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       var title = document.createElement('div'); title.textContent = 'Choose a path'; title.style.fontWeight = '600'; title.style.marginBottom = '6px';
       ctn.appendChild(title);
       opts.forEach(function(o){
-        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; try { markTransition(current, o.to); } catch(e){}; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
+        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; try { var stepsArr = (data.manifest && data.manifest.steps) || []; if(current>=0 && current < stepsArr.length) clearMarker(stepsArr[current]); } catch(e){}; try { markTransition(current, o.to); } catch(e){}; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
         ctn.appendChild(b);
       });
     }
@@ -430,12 +433,14 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
 
     function playStep(idx){
       var s = (data.manifest.steps||[])[idx]; if(!s) return Promise.resolve();
-      current = idx; try { if(running && typeof runVisited !== 'undefined') runVisited[idx] = true; } catch(e){}; renderList(); addMarker(s); showChoices();
+      current = idx; try { if(running && typeof runVisited !== 'undefined') runVisited[idx] = true; } catch(e){}; renderList(); addMarker(s);
       showPopup(s && s.description || '');
+      // Hide choices while audio/timer for this step is in progress
+      try { var c = document.getElementById('choices'); if(c) c.innerHTML=''; } catch(e){}
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
     }
 
     function resetAll(){
@@ -443,6 +448,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         var steps = (data.manifest && data.manifest.steps) || [];
         if(current >= 0 && current < steps.length){ clearMarker(steps[current]); }
       } catch(e){}
+      // Clear sticky final highlight
+      clearFinalMarker();
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       showPopup('');
       var ctn = document.getElementById('choices'); if(ctn) ctn.innerHTML = '';
@@ -474,15 +481,18 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
       if(current < 0 && steps.length){ playStep(0); return; }
+      // Clear sticky final highlight before advancing
+      clearFinalMarker();
       var ni = computeNextIndex();
-      if(ni >= 0){ try { markTransition(current, ni); } catch(e){}; playStep(ni); }
+      if(ni >= 0){ try { if(current>=0 && current < steps.length) clearMarker(steps[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; playStep(ni); }
+      else { resetAll(); }
     };
     var running = false; var runVisited = {};
     function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
     document.getElementById('run').onclick = async function(){
       if(running) return;
       // ensure a full reset before running again
-      resetAll(); try { runVisited = {}; } catch(e){}
+      resetAll(); clearFinalMarker(); try { runVisited = {}; } catch(e){}
       running = true;
       var runBtn = document.getElementById('run');
       var nextBtn = document.getElementById('next');
@@ -497,14 +507,13 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
             await waitForChoice();
           } else {
             var ni = computeNextIndex();
-            if(ni >= 0){ try { markTransition(current, ni); } catch(e){}; await playStep(ni); }
+            if(ni >= 0){ try { var stepsArr2 = (data.manifest && data.manifest.steps) || []; if(current>=0 && current < stepsArr2.length) clearMarker(stepsArr2[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; await playStep(ni); }
             else {
-              // If EndEvent reachable but no explicit step exists for it, briefly highlight the EndEvent then finish
-              var endId = findReachableEndId();
-              if(endId){ try{ canvas().addMarker(endId,'current'); canvas().zoom('fit-viewport'); }catch(e){}
-                await new Promise(function(res){ setTimeout(res, 600); });
-                try{ canvas().removeMarker(endId,'current'); }catch(e){}
-              }
+              // Finished: persist sticky highlight on the final step until user presses Next/Run
+              try {
+                var stepsArr3 = (data.manifest && data.manifest.steps) || [];
+                if(current>=0 && current < stepsArr3.length){ finalId = stepsArr3[current].bpmnElementId; addFinalMarkerById(finalId); }
+              } catch(e){}
               break;
             }
           }
@@ -512,7 +521,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       } finally {
         running = false;
         runBtn.disabled = false;
-        resetAll();
+        try { nextBtn.disabled = false; } catch(e){}
+        // Do NOT reset here; leave sticky highlight and visited trail until user acts
       }
     };
     viewer.importXML(data.xml).then(function(){ renderList(); canvas().zoom('fit-viewport'); }).catch(console.error);
