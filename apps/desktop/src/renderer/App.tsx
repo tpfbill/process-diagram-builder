@@ -32,6 +32,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   interface Window {
     api: {
       saveProject: (payload: { manifest: string; bpmn: string; audios: { name: string; bytes: number[] }[] }) => Promise<{ ok: boolean; path?: string }>;
+      openProject: () => Promise<{ ok: boolean; manifest?: string; bpmn?: string; audios?: { name: string; bytes: number[] }[] }>;
+      exportStandalone: (payload: { manifest: string; bpmn: string; audios: { name: string; bytes: number[] }[] }) => Promise<{ ok: boolean; path?: string }>;
     };
   }
  }
@@ -44,6 +46,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [recordings, setRecordings] = useState<Record<string, Blob>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const playbackRef = useRef<HTMLAudioElement | null>(null);
+  const playbackUrlRef = useRef<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
   const [selectedWidth, setSelectedWidth] = useState<number | ''>('');
@@ -52,6 +56,9 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
+  const [previewChoices, setPreviewChoices] = useState<Array<{ label: string; to: number }>>([]);
+  const choiceResolverRef = useRef<((to: number) => void) | null>(null);
+  const [previewText, setPreviewText] = useState<string>("");
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -119,6 +126,20 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     return () => m.destroy();
   }, []);
 
+  // Cleanup any playing audio on unmount
+  useEffect(() => {
+    return () => {
+      if (playbackRef.current) {
+        try { playbackRef.current.pause(); } catch {}
+      }
+      if (playbackUrlRef.current) {
+        try { URL.revokeObjectURL(playbackUrlRef.current); } catch {}
+      }
+      playbackRef.current = null;
+      playbackUrlRef.current = null;
+    };
+  }, []);
+
   useEffect(() => { selectedIdRef.current = selectedElementId; }, [selectedElementId]);
   const manifestRef = useRef(manifest);
   const stepsRef = useRef(steps);
@@ -130,8 +151,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     const id = `${Date.now()}`;
     const s: StepMeta = {
       id,
-      label: selectedLabel || selectedElementId,
-      bpmnElementId: selectedElementId,
+      label: selectedLabel || (selectedElementId ?? ''),
+      bpmnElementId: selectedElementId ?? '',
       durationMs: 2000
     };
     const next = [...steps, s];
@@ -187,22 +208,117 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   };
 
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+  const waitForChoice = () => new Promise<number>((resolve) => { choiceResolverRef.current = resolve; });
+
+  const computeChoices = (idx: number) => {
+    if (!modelerRef.current) return [] as Array<{ label: string; to: number }>;
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
+    const stepsLocal = stepsRef.current;
+    const curStep = stepsLocal[idx];
+    const el = curStep && elementRegistry.get(curStep.bpmnElementId);
+    const type: string | undefined = el?.type || el?.businessObject?.$type;
+    const isGateway = !!type && /Gateway$/.test(type);
+    if (!isGateway) return [];
+    const outgoing: any[] = (el?.businessObject?.outgoing || []) as any[];
+    const reachable = (startId: string) => {
+      const vis = new Set<string>();
+      const q: string[] = [startId];
+      while (q.length) {
+        const id = q.shift()!;
+        if (vis.has(id)) continue;
+        vis.add(id);
+        const node = elementRegistry.get(id);
+        const outs: any[] = (node?.businessObject?.outgoing || []) as any[];
+        for (const f of outs) if (f?.targetRef?.id) q.push(f.targetRef.id);
+      }
+      return vis;
+    };
+    const options: Array<{ label: string; to: number }> = [];
+    for (const flow of outgoing) {
+      const target = flow?.targetRef;
+      if (!target?.id) continue;
+      const reach = reachable(target.id);
+      let to = -1;
+      for (let j = idx + 1; j < stepsLocal.length; j++) {
+        if (reach.has(stepsLocal[j].bpmnElementId)) { to = j; break; }
+      }
+      if (to >= 0) options.push({ label: target.name || target.id, to });
+    }
+    return options;
+  };
+
+  const computeNextFromFlow = (idx: number) => {
+    if (!modelerRef.current) return { to: -1, hasEnd: false };
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
+    const stepsLocal = stepsRef.current;
+    const cur = stepsLocal[idx];
+    if (!cur) return { to: -1, hasEnd: false };
+    const curEl = elementRegistry.get(cur.bpmnElementId);
+    const t: string | undefined = curEl?.type || curEl?.businessObject?.$type;
+    if (t && /Gateway$/.test(t)) return { to: -1, hasEnd: false };
+    const ids = new Set<string>();
+    let hasEnd = false;
+    const q: any[] = [];
+    const outs: any[] = (curEl?.businessObject?.outgoing || []) as any[];
+    for (const f of outs) if (f?.targetRef) q.push(f.targetRef);
+    while (q.length) {
+      const n = q.shift();
+      if (!n?.id || ids.has(n.id)) continue;
+      ids.add(n.id);
+      const ty: string | undefined = n.$type || n.type;
+      if (ty && /EndEvent$/.test(ty)) hasEnd = true;
+      const o: any[] = (n.outgoing || []) as any[];
+      for (const f of o) if (f?.targetRef) q.push(f.targetRef);
+    }
+    let to = -1;
+    for (let j = idx + 1; j < stepsLocal.length; j++) {
+      if (ids.has(stepsLocal[j].bpmnElementId)) { to = j; break; }
+    }
+    return { to, hasEnd };
+  };
+
   const previewAll = async () => {
     if (previewing) return;
     if (!modelerRef.current) return;
     setPreviewing(true);
     previewCancelRef.current = false;
     const canvas = (modelerRef.current as any).get('canvas');
-    for (const s of steps) {
-      if (previewCancelRef.current) break;
+    let idx = 0;
+    while (!previewCancelRef.current && idx >= 0 && idx < stepsRef.current.length) {
+      const s = stepsRef.current[idx];
+      if (!s) break;
       canvas.addMarker(s.bpmnElementId, 'current');
-      await delay(s.durationMs);
+      setPreviewText(s.description || "");
+      const blob = recordings[s.id];
+      if (blob) await playBlob(blob); else await delay(s.durationMs);
       canvas.removeMarker(s.bpmnElementId, 'current');
+      setPreviewText("");
+      if (previewCancelRef.current) break;
+
+      // Branching logic
+      const choices = computeChoices(idx);
+      if (choices.length) {
+        setPreviewChoices(choices);
+        const sel = await waitForChoice();
+        setPreviewChoices([]);
+        if (previewCancelRef.current || sel < 0) break;
+        idx = sel;
+        continue;
+      }
+      const { to, hasEnd } = computeNextFromFlow(idx);
+      if (to >= 0) { idx = to; continue; }
+      if (hasEnd) break;
+      idx = idx + 1; // fallback
     }
     setPreviewing(false);
   };
   const stopPreview = () => {
     previewCancelRef.current = true;
+    stopPlayback();
+    if (choiceResolverRef.current) { try { choiceResolverRef.current(-1); } catch {} choiceResolverRef.current = null; }
+    setPreviewChoices([]);
+    setPreviewText("");
     setPreviewing(false);
   };
  
@@ -254,9 +370,40 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   };
  
   const stopRecording = () => mediaRecorderRef.current?.stop();
+
+  const stopPlayback = () => {
+    if (playbackRef.current) {
+      try { playbackRef.current.pause(); } catch {}
+    }
+    if (playbackUrlRef.current) {
+      try { URL.revokeObjectURL(playbackUrlRef.current); } catch {}
+    }
+    playbackRef.current = null;
+    playbackUrlRef.current = null;
+  };
+
+  const playBlob = async (blob: Blob) => {
+    stopPlayback();
+    const url = URL.createObjectURL(blob);
+    playbackUrlRef.current = url;
+    const a = new Audio(url);
+    playbackRef.current = a;
+    await new Promise<void>((resolve) => {
+      a.onended = () => resolve();
+      a.onerror = () => resolve();
+      a.play().catch(() => resolve());
+    });
+  };
+
+  const playRecording = async (stepId: string) => {
+    const blob = recordings[stepId];
+    if (!blob) return;
+    await playBlob(blob);
+  };
  
   const saveProject = async () => {
     const { xml } = await modelerRef.current!.saveXML({ format: true });
+    const xmlStr = xml ?? '';
     const audios = await Promise.all(
       steps.map(async s => {
         const blob = recordings[s.id];
@@ -265,7 +412,45 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       })
     );
     const man = JSON.stringify({ ...manifest, steps: steps.map(s => ({ ...s, audioFile: `${s.id}.webm` })) }, null, 2);
-    await window.api.saveProject({ manifest: man, bpmn: xml, audios });
+    await window.api.saveProject({ manifest: man, bpmn: xmlStr, audios });
+  };
+
+  const exportStandalone = async () => {
+    const { xml } = await modelerRef.current!.saveXML({ format: true });
+    const xmlStr = xml ?? '';
+    const audios = await Promise.all(
+      steps.map(async s => {
+        const blob = recordings[s.id];
+        const arr = blob ? new Uint8Array(await blob.arrayBuffer()) : new Uint8Array();
+        return { name: `${s.id}.webm`, bytes: Array.from(arr) };
+      })
+    );
+    const man = JSON.stringify({ ...manifest, steps: steps.map(s => ({ ...s, audioFile: `${s.id}.webm` })) }, null, 2);
+    await window.api.exportStandalone({ manifest: man, bpmn: xmlStr, audios });
+  };
+
+  const openProject = async () => {
+    const resp = await window.api.openProject();
+    if (!resp?.ok || !resp.manifest || !resp.bpmn) return;
+    try {
+      const mObj: ProjectManifest = JSON.parse(resp.manifest);
+      setManifest(mObj);
+      setSteps(mObj.steps || []);
+      await modelerRef.current?.importXML(resp.bpmn);
+      const recs: Record<string, Blob> = {};
+      if (resp.audios && Array.isArray(resp.audios)) {
+        const audioMap = new Map(resp.audios.map(a => [a.name, a.bytes] as const));
+        for (const s of mObj.steps || []) {
+          const name = s.audioFile || `${s.id}.webm`;
+          const bytes = audioMap.get(name);
+          if (bytes) {
+            const u8 = new Uint8Array(bytes as number[]);
+            recs[s.id] = new Blob([u8], { type: 'audio/webm' });
+          }
+        }
+      }
+      setRecordings(recs);
+    } catch {}
   };
  
   return (
@@ -277,7 +462,9 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         </button>
         <div style={{ width: 12 }} />
         <button onClick={addStep} disabled={!selectedElementId}>Add Selected as Step</button>
+        <button onClick={openProject}>Open Project</button>
         <button onClick={saveProject}>Save Project</button>
+        <button onClick={exportStandalone}>Export Standalone</button>
         <button onClick={previewAll} disabled={steps.length === 0 || previewing}>Preview</button>
         <button onClick={stopPreview} disabled={!previewing}>Stop</button>
         <div style={{ width: 16 }} />
@@ -331,6 +518,18 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {showSidebar && (
           <div style={{ width: 320, borderRight: '1px solid #ddd', padding: 12, overflow: 'auto' }}>
+            {previewChoices.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Choose a path</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {previewChoices.map((c, i) => (
+                    <button key={i} onClick={() => { const r = choiceResolverRef.current; choiceResolverRef.current = null; setPreviewChoices([]); r && r(c.to); }}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {steps.map((s, i) => (
               <div
                 key={s.id}
@@ -369,9 +568,25 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
                     setManifest(updateTimestamp({ ...manifest, steps: next }));
                   }} style={{ width: 90 }} /> ms
                 </div>
+                {/* Popup description editor */}
+                <div style={{ marginTop: 8 }}>
+                  <textarea
+                    placeholder="Popup description (optional)"
+                    value={s.description || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const next = steps.map(x => x.id === s.id ? { ...x, description: val } : x);
+                      setSteps(next);
+                      setManifest(updateTimestamp({ ...manifest, steps: next }));
+                    }}
+                    rows={3}
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                </div>
                 <div>
                   <button onClick={() => startRecording(s.id)}>Record</button>
                   <button onClick={stopRecording} style={{ marginLeft: 8 }}>Stop</button>
+                  <button onClick={() => playRecording(s.id)} style={{ marginLeft: 8 }} disabled={!recordings[s.id]}>Play</button>
                 </div>
               </div>
             ))}
@@ -380,6 +595,25 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
 
         <div style={{ flex: 1, position: 'relative' }} onClick={onCanvasClick}>
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+          {previewing && previewText && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 16,
+                right: 16,
+                bottom: 16,
+                padding: '12px 14px',
+                background: 'rgba(255,255,255,0.95)',
+                border: '1px solid #ddd',
+                borderRadius: 8,
+                boxShadow: '0 4px 18px rgba(0,0,0,0.12)',
+                maxHeight: '40%',
+                overflow: 'auto'
+              }}
+            >
+              {previewText}
+            </div>
+          )}
         </div>
       </div>
     </div>

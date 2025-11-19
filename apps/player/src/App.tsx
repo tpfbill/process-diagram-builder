@@ -12,7 +12,9 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
    const [viewer, setViewer] = useState<Viewer | null>(null);
    const [manifest, setManifest] = useState<ProjectManifest | null>(null);
    const [current, setCurrent] = useState<number>(-1);
-   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [finished, setFinished] = useState<boolean>(false);
+  const [choices, setChoices] = useState<Array<{ label: string; to: number }>>([]);
   const getCanvas = () => (viewer as any)?.get('canvas');
   const zoomValue = () => getCanvas()?.zoom() ?? 1;
   const setZoom = (z: number) => getCanvas()?.zoom(z);
@@ -29,6 +31,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
  
    const loadFiles = async (files: FileList | null) => {
      if (!files) return;
+    setFinished(false);
      const fileMap = new Map<string, File>();
      Array.from(files).forEach(f => fileMap.set(f.name, f));
      const m = fileMap.get('manifest.json');
@@ -45,6 +48,8 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
      const step = manifest.steps[idx];
      if (!step) return;
      setCurrent(idx);
+    setFinished(false);
+    setChoices([]);
      const canvas = (viewer as any).get('canvas');
      canvas.zoom('fit-viewport');
     canvas.addMarker(step.bpmnElementId, 'current');
@@ -61,17 +66,99 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
     canvas.removeMarker(step.bpmnElementId, 'current');
    };
  
-   const next = () => {
-     const idx = current + 1;
-     if (!manifest) return;
-     if (idx < manifest.steps.length) playStep(idx);
+  const next = () => {
+    if (!manifest || !viewer) return;
+    // If current is a gateway, present branch choices instead of blindly advancing
+    const elementRegistry = (viewer as any).get('elementRegistry');
+    const steps = manifest.steps;
+    const idx = current + 1;
+    if (current >= 0) {
+      const curStep = steps[current];
+      const el = curStep && elementRegistry.get(curStep.bpmnElementId);
+      const type: string | undefined = el?.type || el?.businessObject?.$type;
+      const isGateway = !!type && /Gateway$/.test(type);
+      if (isGateway) {
+        const outgoing: any[] = (el?.businessObject?.outgoing || []) as any[];
+        const computeReachable = (startId: string): Set<string> => {
+          const vis = new Set<string>();
+          const q: string[] = [startId];
+          while (q.length) {
+            const id = q.shift()!;
+            if (vis.has(id)) continue;
+            vis.add(id);
+            const node = elementRegistry.get(id);
+            const bos = node?.businessObject;
+            const outs: any[] = (bos?.outgoing || []) as any[];
+            for (const f of outs) { if (f?.targetRef?.id) q.push(f.targetRef.id); }
+          }
+          return vis;
+        };
+        const options: Array<{ label: string; to: number }> = [];
+        for (const flow of outgoing) {
+          const target = flow?.targetRef;
+          if (!target?.id) continue;
+          const reach = computeReachable(target.id);
+          let to = -1;
+          for (let j = current + 1; j < steps.length; j++) {
+            if (reach.has(steps[j].bpmnElementId)) { to = j; break; }
+          }
+          if (to >= 0) {
+            options.push({ label: target.name || target.id, to });
+          }
+        }
+        if (options.length) { setChoices(options); return; }
+      }
+    }
+    // Non-gateway: advance to the next reachable step along BPMN flow; if none and EndEvent is reachable, finish
+    const cur = steps[current];
+    if (!cur) return;
+    const curEl = elementRegistry.get(cur.bpmnElementId);
+    const computeReachableFrom = (startEl: any): { ids: Set<string>; hasEnd: boolean } => {
+      const ids = new Set<string>();
+      let hasEnd = false;
+      const q: any[] = [];
+      const outs: any[] = (startEl?.businessObject?.outgoing || []) as any[];
+      for (const f of outs) if (f?.targetRef) q.push(f.targetRef);
+      while (q.length) {
+        const n = q.shift();
+        if (!n?.id || ids.has(n.id)) continue;
+        ids.add(n.id);
+        const t: string | undefined = n.$type || n.type;
+        if (t && /EndEvent$/.test(t)) hasEnd = true;
+        const o: any[] = (n.outgoing || []) as any[];
+        for (const f of o) if (f?.targetRef) q.push(f.targetRef);
+      }
+      return { ids, hasEnd };
+    };
+    const reach = computeReachableFrom(curEl);
+    let to = -1;
+    for (let j = current + 1; j < steps.length; j++) {
+      if (reach.ids.has(steps[j].bpmnElementId)) { to = j; break; }
+    }
+    if (to >= 0) { playStep(to); return; }
+    if (reach.hasEnd) { setFinished(true); return; }
    };
  
    return (
      <div style={{ display: 'flex', height: '100vh' }}>
-       <div style={{ width: 280, padding: 12, borderRight: '1px solid #ddd' }}>
-         <input id="file-input" type="file" multiple onChange={e => loadFiles(e.target.files)} />
-         <button onClick={next} disabled={!manifest}>Next</button>
+      <div style={{ width: 280, padding: 12, borderRight: '1px solid #ddd' }}>
+        <input id="file-input" type="file" multiple onChange={e => loadFiles(e.target.files)} />
+        {choices.length > 0 && (
+          <div style={{ margin: '12px 0' }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Choose a path</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {choices.map((c, i) => (
+                <button key={i} onClick={() => { setChoices([]); playStep(c.to); }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <button onClick={next} disabled={!manifest || choices.length > 0 || finished}>Next</button>
+        {finished && (
+          <div style={{ marginTop: 8, color: '#555' }}>Reached end</div>
+        )}
          <div>
            {manifest?.steps.map((s: StepMeta, i) => (
              <div key={s.id} style={{ padding: 6, background: i === current ? '#eef' : 'transparent' }}>
