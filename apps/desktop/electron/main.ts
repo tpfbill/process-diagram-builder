@@ -434,8 +434,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       try { var c = document.getElementById('choices'); if(c) c.innerHTML=''; } catch(e){}
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ addVisitedEl(s && s.bpmnElementId); addMarker(s); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
     }
 
     function resetAll(){
