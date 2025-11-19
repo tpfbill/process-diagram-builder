@@ -161,7 +161,7 @@ ${cssFont}
     <div class="sidebar">
       <div id="choices" style="margin-bottom:12px;"></div>
       <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <button id="next">Next</button>
+        <button id="next">Next Step</button>
         <button id="run">Run Continuous</button>
       </div>
       <div id="list"></div>
@@ -264,7 +264,17 @@ ${cssFont}
       var opts = computeChoices();
       if(!opts.length){
         var ni = computeNextIndex();
-        document.getElementById('next').disabled = (ni < 0);
+        var nextBtn = document.getElementById('next');
+        var runBtn = document.getElementById('run');
+        if(ni < 0){
+          // finished — reset and reactivate controls
+          current = -1; renderList();
+          if(nextBtn) nextBtn.disabled = false;
+          if(runBtn) runBtn.disabled = false;
+          ctn.innerHTML = '';
+          return;
+        }
+        if(nextBtn) nextBtn.disabled = false;
         return;
       }
       document.getElementById('next').disabled = true;
@@ -289,8 +299,8 @@ ${cssFont}
       showPopup(s && s.description || '');
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); showPopup(''); res(); }; audio.onerror=function(){ clearMarker(s); showPopup(''); res(); }; audio.play().catch(function(){ clearMarker(s); showPopup(''); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); showPopup(''); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ clearMarker(s); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ clearMarker(s); showPopup(''); showChoices(); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
     }
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
