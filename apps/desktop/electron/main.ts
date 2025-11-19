@@ -267,11 +267,16 @@ ${cssFont}
         var nextBtn = document.getElementById('next');
         var runBtn = document.getElementById('run');
         if(ni < 0){
-          // finished — reset and reactivate controls
-          resetAll();
-          return;
+          // finished
+          if(running){
+            // when running, let the loop handle final reset
+            return;
+          } else {
+            resetAll();
+            return;
+          }
         }
-        if(nextBtn) nextBtn.disabled = false;
+        if(!running && nextBtn) nextBtn.disabled = false;
         return;
       }
       document.getElementById('next').disabled = true;
@@ -346,7 +351,7 @@ ${cssFont}
       } finally {
         running = false;
         runBtn.disabled = false;
-        showChoices();
+        resetAll();
       }
     };
     viewer.importXML(data.xml).then(function(){ renderList(); canvas().zoom('fit-viewport'); }).catch(console.error);
