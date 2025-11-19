@@ -268,10 +268,7 @@ ${cssFont}
         var runBtn = document.getElementById('run');
         if(ni < 0){
           // finished — reset and reactivate controls
-          current = -1; renderList();
-          if(nextBtn) nextBtn.disabled = false;
-          if(runBtn) runBtn.disabled = false;
-          ctn.innerHTML = '';
+          resetAll();
           return;
         }
         if(nextBtn) nextBtn.disabled = false;
@@ -302,6 +299,20 @@ ${cssFont}
       if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ clearMarker(s); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ clearMarker(s); showPopup(''); showChoices(); res(); }); }); }
       return new Promise(function(res){ setTimeout(function(){ clearMarker(s); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
     }
+
+    function resetAll(){
+      try {
+        var steps = (data.manifest && data.manifest.steps) || [];
+        if(current >= 0 && current < steps.length){ clearMarker(steps[current]); }
+      } catch(e){}
+      if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
+      showPopup('');
+      var ctn = document.getElementById('choices'); if(ctn) ctn.innerHTML = '';
+      current = -1; renderList();
+      var nextBtn = document.getElementById('next'); if(nextBtn) nextBtn.disabled = false;
+      var runBtn = document.getElementById('run'); if(runBtn) runBtn.disabled = false;
+      choiceResolve = null;
+    }
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
       if(current < 0 && steps.length){ playStep(0); return; }
@@ -312,6 +323,8 @@ ${cssFont}
     function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
     document.getElementById('run').onclick = async function(){
       if(running) return;
+      // ensure a full reset before running again
+      resetAll();
       running = true;
       var runBtn = document.getElementById('run');
       var nextBtn = document.getElementById('next');
