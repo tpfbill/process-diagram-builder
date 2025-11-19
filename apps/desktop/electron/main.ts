@@ -152,6 +152,9 @@ ${cssFont}
 .djs-element.visited .djs-visual > :nth-child(1) { stroke: #64b5f6 !important; stroke-width: 6px !important; }
 /* Ensure current wins over visited when both are present (persist bold highlight) */
 .djs-element.current.visited .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; }
+/* Final (sticky) highlight that persists until user action */
+.djs-element.current-final .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; fill: rgba(25,118,210,0.12) !important; }
+.djs-element.current-final.visited .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; }
 /* Ensure diagram text is readable on light/dark backgrounds */
 svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255,255,0.9); stroke-width: 2px; }
 `;
@@ -215,7 +218,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     document.getElementById('zoomReset').onclick = function(){ setZoom(1); };
     document.getElementById('zoomFit').onclick = function(){ try { canvas().zoom('fit-viewport'); } catch(e){} };
 
-    var current = -1; var audio = null;
+    var current = -1; var audio = null; var finalId = null;
     function renderList(){
       var list = document.getElementById('list');
       list.innerHTML = '';
@@ -226,6 +229,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     }
     function clearMarker(s){ try { canvas().removeMarker(s.bpmnElementId,'current'); } catch(e){} }
     function addMarker(s){ try { canvas().addMarker(s.bpmnElementId,'current'); canvas().zoom('fit-viewport'); } catch(e){} }
+    function addFinalMarkerById(id){ if(!id) return; try { canvas().addMarker(id,'current-final'); } catch(e){} }
+    function clearFinalMarker(){ if(finalId){ try { canvas().removeMarker(finalId,'current-final'); } catch(e){} finalId = null; } }
     var visitedEls = {}; var visitedFlows = {}; var origArrow = {};
     function ensureVisitedArrowMarker(){
       try {
@@ -398,10 +403,10 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
           // Do NOT reset in manual mode so the highlight persists until a button is pressed.
           // In running mode, let the loop decide.
           if(running){ return; }
-          // Re-assert current marker on the final step to guard against any incidental clears
+          // Persist sticky highlight using a dedicated marker that we only clear on button press
           try {
             var stepsArr0 = (data.manifest && data.manifest.steps) || [];
-            if(current>=0 && current < stepsArr0.length) addMarker(stepsArr0[current]);
+            if(current>=0 && current < stepsArr0.length){ finalId = stepsArr0[current].bpmnElementId; addFinalMarkerById(finalId); }
           } catch(e){}
           if(nextBtn) nextBtn.disabled = false;
           if(runBtn) runBtn.disabled = false;
@@ -443,6 +448,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         var steps = (data.manifest && data.manifest.steps) || [];
         if(current >= 0 && current < steps.length){ clearMarker(steps[current]); }
       } catch(e){}
+      // Clear sticky final highlight
+      clearFinalMarker();
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       showPopup('');
       var ctn = document.getElementById('choices'); if(ctn) ctn.innerHTML = '';
@@ -474,6 +481,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
       if(current < 0 && steps.length){ playStep(0); return; }
+      // Clear sticky final highlight before advancing
+      clearFinalMarker();
       var ni = computeNextIndex();
       if(ni >= 0){ try { if(current>=0 && current < steps.length) clearMarker(steps[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; playStep(ni); }
       else { resetAll(); }
@@ -483,7 +492,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     document.getElementById('run').onclick = async function(){
       if(running) return;
       // ensure a full reset before running again
-      resetAll(); try { runVisited = {}; } catch(e){}
+      resetAll(); clearFinalMarker(); try { runVisited = {}; } catch(e){}
       running = true;
       var runBtn = document.getElementById('run');
       var nextBtn = document.getElementById('next');
