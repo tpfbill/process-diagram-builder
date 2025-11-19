@@ -392,14 +392,13 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         var nextBtn = document.getElementById('next');
         var runBtn = document.getElementById('run');
         if(ni < 0){
-          // finished
-          if(running){
-            // when running, let the loop handle final reset
-            return;
-          } else {
-            resetAll();
-            return;
-          }
+          // Finished (EndEvent or no next)
+          // Do NOT reset in manual mode so the highlight persists until a button is pressed.
+          // In running mode, let the loop decide.
+          if(running){ return; }
+          if(nextBtn) nextBtn.disabled = false;
+          if(runBtn) runBtn.disabled = false;
+          return;
         }
         if(!running && nextBtn) nextBtn.disabled = false;
         return;
@@ -424,6 +423,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       var s = (data.manifest.steps||[])[idx]; if(!s) return Promise.resolve();
       current = idx; try { if(running && typeof runVisited !== 'undefined') runVisited[idx] = true; } catch(e){}; renderList(); addMarker(s); showChoices();
       showPopup(s && s.description || '');
+      // Hide choices while audio/timer for this step is in progress
+      try { var c = document.getElementById('choices'); if(c) c.innerHTML=''; } catch(e){}
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
       if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }); }); }
@@ -468,6 +469,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       if(current < 0 && steps.length){ playStep(0); return; }
       var ni = computeNextIndex();
       if(ni >= 0){ try { if(current>=0 && current < steps.length) clearMarker(steps[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; playStep(ni); }
+      else { resetAll(); }
     };
     var running = false; var runVisited = {};
     function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
