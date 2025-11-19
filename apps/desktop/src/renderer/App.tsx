@@ -59,6 +59,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   // Track visited elements/flows during preview to leave a trail
   const visitedElsRef = useRef<Set<string>>(new Set());
   const visitedFlowsRef = useRef<Set<string>>(new Set());
+  const origArrowRef = useRef<Map<string, string>>(new Map());
   const [previewChoices, setPreviewChoices] = useState<Array<{ label: string; to: number }>>([]);
   const choiceResolverRef = useRef<((to: number) => void) | null>(null);
   const [previewText, setPreviewText] = useState<string>("");
@@ -222,15 +223,66 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     if (!modelerRef.current || !id) return;
     const set = visitedFlowsRef.current;
     if (set.has(id)) return;
-    try { (modelerRef.current as any).get('canvas').addMarker(id, 'visited'); set.add(id); } catch {}
+    try {
+      const canvas = (modelerRef.current as any).get('canvas');
+      canvas.addMarker(id, 'visited');
+      set.add(id);
+      // Shrink arrowhead for visited connection
+      try {
+        const svg: SVGSVGElement | undefined = (canvas as any)._svg;
+        if (svg) {
+          ensureVisitedArrowMarker(svg);
+          const gfx: SVGGElement | null = canvas.getGraphics(id);
+          const path: SVGPathElement | null = gfx ? (gfx.querySelector('path.djs-connection-path') as SVGPathElement) : null;
+          if (path) {
+            const orig = path.getAttribute('marker-end') || '';
+            if (!origArrowRef.current.has(id)) origArrowRef.current.set(id, orig);
+            path.setAttribute('marker-end', 'url(#pdb-visited-arrow)');
+          }
+        }
+      } catch {}
+    } catch {}
   };
   const clearVisited = () => {
     if (!modelerRef.current) return;
     const canvas = (modelerRef.current as any).get('canvas');
     for (const id of visitedElsRef.current) { try { canvas.removeMarker(id, 'visited'); } catch {} }
-    for (const id of visitedFlowsRef.current) { try { canvas.removeMarker(id, 'visited'); } catch {} }
+    for (const id of visitedFlowsRef.current) {
+      try {
+        // Restore original arrowhead
+        const gfx: SVGGElement | null = canvas.getGraphics(id);
+        const path: SVGPathElement | null = gfx ? (gfx.querySelector('path.djs-connection-path') as SVGPathElement) : null;
+        if (path) {
+          const orig = origArrowRef.current.get(id);
+          if (orig && orig.length) path.setAttribute('marker-end', orig);
+        }
+      } catch {}
+      try { canvas.removeMarker(id, 'visited'); } catch {}
+    }
     visitedElsRef.current.clear();
     visitedFlowsRef.current.clear();
+    origArrowRef.current.clear();
+  };
+
+  // Ensure a smaller arrowhead marker exists for visited connections
+  const ensureVisitedArrowMarker = (svg: SVGSVGElement) => {
+    if (svg.querySelector('#pdb-visited-arrow')) return;
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.prepend(defs); }
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', 'pdb-visited-arrow');
+    marker.setAttribute('viewBox', '0 0 20 20');
+    marker.setAttribute('refX', '11');
+    marker.setAttribute('refY', '10');
+    marker.setAttribute('markerWidth', '6');  // ~1/3 of typical 18-20
+    marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('orient', 'auto');
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', 'M 1 5 L 11 10 L 1 15 Z');
+    p.setAttribute('fill', '#64b5f6');
+    p.setAttribute('stroke', 'none');
+    marker.appendChild(p);
+    defs.appendChild(marker);
   };
 
   // Compute path (nodes + sequence flows) between two BPMN element ids

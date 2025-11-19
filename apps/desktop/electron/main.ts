@@ -232,9 +232,46 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     }
     function clearMarker(s){ try { canvas().removeMarker(s.bpmnElementId,'current'); } catch(e){} }
     function addMarker(s){ try { canvas().addMarker(s.bpmnElementId,'current'); canvas().zoom('fit-viewport'); } catch(e){} }
-    var visitedEls = {}; var visitedFlows = {};
+    var visitedEls = {}; var visitedFlows = {}; var origArrow = {};
+    function ensureVisitedArrowMarker(){
+      try {
+        var svg = canvas()._svg; if(!svg) return;
+        if(svg.querySelector && svg.querySelector('#pdb-visited-arrow')) return;
+        var defs = svg.querySelector && svg.querySelector('defs');
+        if(!defs){ defs = document.createElementNS('http://www.w3.org/2000/svg','defs'); svg.prepend(defs); }
+        var marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+        marker.setAttribute('id','pdb-visited-arrow');
+        marker.setAttribute('viewBox','0 0 20 20');
+        marker.setAttribute('refX','11');
+        marker.setAttribute('refY','10');
+        marker.setAttribute('markerWidth','6');
+        marker.setAttribute('markerHeight','6');
+        marker.setAttribute('orient','auto');
+        var p = document.createElementNS('http://www.w3.org/2000/svg','path');
+        p.setAttribute('d','M 1 5 L 11 10 L 1 15 Z');
+        p.setAttribute('fill','#64b5f6');
+        p.setAttribute('stroke','none');
+        marker.appendChild(p);
+        defs.appendChild(marker);
+      } catch(e){}
+    }
     function addVisitedEl(id){ if(!id || visitedEls[id]) return; try { canvas().addMarker(id,'visited'); visitedEls[id]=true; } catch(e){} }
-    function addVisitedFlow(id){ if(!id || visitedFlows[id]) return; try { canvas().addMarker(id,'visited'); visitedFlows[id]=true; } catch(e){} }
+    function addVisitedFlow(id){
+      if(!id || visitedFlows[id]) return;
+      try {
+        canvas().addMarker(id,'visited'); visitedFlows[id]=true;
+        ensureVisitedArrowMarker();
+        try {
+          var gfx = canvas().getGraphics(id);
+          var path = gfx && gfx.querySelector && gfx.querySelector('path.djs-connection-path');
+          if(path){
+            var m = path.getAttribute('marker-end') || '';
+            if(!origArrow[id]) origArrow[id] = m;
+            path.setAttribute('marker-end','url(#pdb-visited-arrow)');
+          }
+        } catch(e){}
+      } catch(e){}
+    }
 
     function computeChoices(){
       var steps = data.manifest.steps||[];
@@ -412,8 +449,14 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       choiceResolve = null; try { if(typeof runVisited !== 'undefined') runVisited = {}; } catch(e){}
       try {
         Object.keys(visitedEls||{}).forEach(function(id){ try { canvas().removeMarker(id,'visited'); } catch(e){} });
-        Object.keys(visitedFlows||{}).forEach(function(id){ try { canvas().removeMarker(id,'visited'); } catch(e){} });
-        visitedEls = {}; visitedFlows = {};
+        Object.keys(visitedFlows||{}).forEach(function(id){ try {
+          // restore original arrowhead if we changed it
+          var gfx = canvas().getGraphics(id);
+          var path = gfx && gfx.querySelector && gfx.querySelector('path.djs-connection-path');
+          if(path && origArrow && origArrow[id] !== undefined){ path.setAttribute('marker-end', String(origArrow[id])); }
+          canvas().removeMarker(id,'visited');
+        } catch(e){} });
+        visitedEls = {}; visitedFlows = {}; origArrow = {};
       } catch(e){}
     }
     document.getElementById('next').onclick = function(){
