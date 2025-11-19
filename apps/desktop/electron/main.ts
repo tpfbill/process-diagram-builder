@@ -279,6 +279,19 @@ ${cssFont}
           return j2;
         }
       }
+      // Final fallback (match editor preview): advance linearly if no graph-based match and no EndEvent detected
+      if(!hasEnd){
+        for(var j3=current+1;j3<steps.length;j3++){
+          if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j3]) continue;
+          return j3;
+        }
+        for(var j4=0;j4<steps.length;j4++){
+          if(j4!==current){
+            if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j4]) continue;
+            return j4;
+          }
+        }
+      }
       return hasEnd ? -2 : -1;
     }
 
