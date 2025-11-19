@@ -282,6 +282,26 @@ ${cssFont}
       return hasEnd ? -2 : -1;
     }
 
+    function findReachableEndId(){
+      var steps = data.manifest.steps||[];
+      if(current < 0 || current >= steps.length) return null;
+      var cur = steps[current];
+      var el = elementRegistry().get(cur.bpmnElementId);
+      if(!el) return null;
+      var q = [];
+      var outs = (el.businessObject && el.businessObject.outgoing) || [];
+      outs.forEach(function(f){ if(f && f.targetRef) q.push(f.targetRef); });
+      var vis = {};
+      while(q.length){
+        var n = q.shift(); if(!n || !n.id || vis[n.id]) continue; vis[n.id]=true;
+        var ty = n.$type || n.type || '';
+        if(/EndEvent$/.test(String(ty))) return n.id;
+        var o = n.outgoing || [];
+        o.forEach(function(f){ if(f && f.targetRef) q.push(f.targetRef); });
+      }
+      return null;
+    }
+
     var choiceResolve = null;
     function showChoices(){
       var ctn = document.getElementById('choices');
@@ -370,7 +390,15 @@ ${cssFont}
           } else {
             var ni = computeNextIndex();
             if(ni >= 0){ await playStep(ni); }
-            else { break; }
+            else {
+              // If EndEvent reachable but no explicit step exists for it, briefly highlight the EndEvent then finish
+              var endId = findReachableEndId();
+              if(endId){ try{ canvas().addMarker(endId,'current'); canvas().zoom('fit-viewport'); }catch(e){}
+                await new Promise(function(res){ setTimeout(res, 600); });
+                try{ canvas().removeMarker(endId,'current'); }catch(e){}
+              }
+              break;
+            }
           }
         }
       } finally {
