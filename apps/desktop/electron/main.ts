@@ -509,12 +509,11 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
             var ni = computeNextIndex();
             if(ni >= 0){ try { var stepsArr2 = (data.manifest && data.manifest.steps) || []; if(current>=0 && current < stepsArr2.length) clearMarker(stepsArr2[current]); } catch(e){}; try { markTransition(current, ni); } catch(e){}; await playStep(ni); }
             else {
-              // If EndEvent reachable but no explicit step exists for it, briefly highlight the EndEvent then finish
-              var endId = findReachableEndId();
-              if(endId){ try{ canvas().addMarker(endId,'current'); canvas().zoom('fit-viewport'); }catch(e){}
-                await new Promise(function(res){ setTimeout(res, 600); });
-                try{ canvas().removeMarker(endId,'current'); }catch(e){}
-              }
+              // Finished: persist sticky highlight on the final step until user presses Next/Run
+              try {
+                var stepsArr3 = (data.manifest && data.manifest.steps) || [];
+                if(current>=0 && current < stepsArr3.length){ finalId = stepsArr3[current].bpmnElementId; addFinalMarkerById(finalId); }
+              } catch(e){}
               break;
             }
           }
@@ -522,7 +521,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       } finally {
         running = false;
         runBtn.disabled = false;
-        resetAll();
+        try { nextBtn.disabled = false; } catch(e){}
+        // Do NOT reset here; leave sticky highlight and visited trail until user acts
       }
     };
     viewer.importXML(data.xml).then(function(){ renderList(); canvas().zoom('fit-viewport'); }).catch(console.error);
