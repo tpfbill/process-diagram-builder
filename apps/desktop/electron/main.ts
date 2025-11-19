@@ -268,31 +268,12 @@ ${cssFont}
       }
       for(var j=current+1;j<steps.length;j++){
         if(vis[steps[j].bpmnElementId]){
-          if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j]) continue;
           return j;
         }
       }
-      // Fallback: allow wrap-around (manifest order may not match graph path)
-      for(var j2=0;j2<steps.length;j2++){
-        if(j2!==current && vis[steps[j2].bpmnElementId]){
-          if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j2]) continue;
-          return j2;
-        }
-      }
-      // Final fallback (match editor preview): advance linearly if no graph-based match and no EndEvent detected
-      if(!hasEnd){
-        for(var j3=current+1;j3<steps.length;j3++){
-          if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j3]) continue;
-          return j3;
-        }
-        for(var j4=0;j4<steps.length;j4++){
-          if(j4!==current){
-            if(typeof running !== 'undefined' && running && typeof runVisited !== 'undefined' && runVisited[j4]) continue;
-            return j4;
-          }
-        }
-      }
-      return hasEnd ? -2 : -1;
+      if(hasEnd) return -2; // finish here (matches editor preview)
+      // Linear fallback (matches editor preview): next step in manifest
+      return (current + 1 < steps.length) ? current + 1 : -1;
     }
 
     function findReachableEndId(){
