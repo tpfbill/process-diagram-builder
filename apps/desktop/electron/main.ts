@@ -148,6 +148,8 @@ ${cssBpmn}
 ${cssFont}
 /* Current step highlight */
 .djs-element.current .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 8px !important; fill: rgba(25,118,210,0.12) !important; }
+/* Visited trail */
+.djs-element.visited .djs-visual > :nth-child(1) { stroke: #64b5f6 !important; stroke-width: 3px !important; }
 /* Ensure diagram text is readable on light/dark backgrounds */
 svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255,255,0.9); stroke-width: 2px; }
 `;
@@ -230,6 +232,9 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
     }
     function clearMarker(s){ try { canvas().removeMarker(s.bpmnElementId,'current'); } catch(e){} }
     function addMarker(s){ try { canvas().addMarker(s.bpmnElementId,'current'); canvas().zoom('fit-viewport'); } catch(e){} }
+    var visitedEls = {}; var visitedFlows = {};
+    function addVisitedEl(id){ if(!id || visitedEls[id]) return; try { canvas().addMarker(id,'visited'); visitedEls[id]=true; } catch(e){} }
+    function addVisitedFlow(id){ if(!id || visitedFlows[id]) return; try { canvas().addMarker(id,'visited'); visitedFlows[id]=true; } catch(e){} }
 
     function computeChoices(){
       var steps = data.manifest.steps||[];
@@ -259,6 +264,42 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
         if(to>=0) opts.push({ label: target.name || target.id, to: to });
       });
       return opts;
+    }
+
+    function computePath(fromId, toId){
+      var er = elementRegistry();
+      var elFrom = er.get(fromId); if(!elFrom) return { nodes: [], flows: [] };
+      var from = elFrom.businessObject; var targetId = toId;
+      var prev = {}; var q = []; var seen = {};
+      if(from && from.id){ q.push(from); seen[from.id]=true; }
+      while(q.length){
+        var n = q.shift(); if(!n) break;
+        if(n.id === targetId){
+          var nodes=[]; var flows=[]; var cur=n.id;
+          while(prev[cur]){ flows.push(prev[cur].flow); nodes.push(prev[cur].prev); cur = prev[cur].prev; }
+          nodes.reverse(); flows.reverse();
+          return { nodes: nodes, flows: flows };
+        }
+        var outs = n.outgoing || [];
+        for(var i=0;i<outs.length;i++){
+          var f = outs[i]; var t = f && f.targetRef; var tid = t && t.id;
+          if(!tid || seen[tid]) continue;
+          seen[tid]=true; prev[tid] = { prev: n.id, flow: f.id };
+          q.push(t);
+        }
+      }
+      return { nodes: [], flows: [] };
+    }
+
+    function markTransition(fromIndex, toIndex){
+      var steps = (data.manifest && data.manifest.steps) || [];
+      if(fromIndex < 0 || fromIndex >= steps.length) return;
+      if(toIndex < 0 || toIndex >= steps.length) return;
+      var from = steps[fromIndex]; var to = steps[toIndex];
+      addVisitedEl(from.bpmnElementId);
+      var path = computePath(from.bpmnElementId, to.bpmnElementId);
+      (path.nodes||[]).forEach(addVisitedEl);
+      (path.flows||[]).forEach(addVisitedFlow);
     }
 
     function computeNextIndex(){
@@ -335,7 +376,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       var title = document.createElement('div'); title.textContent = 'Choose a path'; title.style.fontWeight = '600'; title.style.marginBottom = '6px';
       ctn.appendChild(title);
       opts.forEach(function(o){
-        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
+        var b = document.createElement('button'); b.textContent = o.label; b.onclick = async function(){ ctn.innerHTML=''; document.getElementById('next').disabled=false; try { markTransition(current, o.to); } catch(e){}; await playStep(o.to); if(choiceResolve){ var r=choiceResolve; choiceResolve=null; r(); } };
         ctn.appendChild(b);
       });
     }
@@ -353,8 +394,8 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       showPopup(s && s.description || '');
       if(audio){ try{ audio.pause(); }catch(e){} audio=null; }
       var uri = data.audioMap && data.audioMap[s.id];
-      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ clearMarker(s); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ clearMarker(s); showPopup(''); showChoices(); res(); }); }); }
-      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
+      if(uri){ audio = new Audio(uri); return new Promise(function(res){ audio.onended=function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.onerror=function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }; audio.play().catch(function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }); }); }
+      return new Promise(function(res){ setTimeout(function(){ clearMarker(s); addVisitedEl(s && s.bpmnElementId); showPopup(''); showChoices(); res(); }, s.durationMs||1000); });
     }
 
     function resetAll(){
@@ -369,12 +410,17 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
       var nextBtn = document.getElementById('next'); if(nextBtn) nextBtn.disabled = false;
       var runBtn = document.getElementById('run'); if(runBtn) runBtn.disabled = false;
       choiceResolve = null; try { if(typeof runVisited !== 'undefined') runVisited = {}; } catch(e){}
+      try {
+        Object.keys(visitedEls||{}).forEach(function(id){ try { canvas().removeMarker(id,'visited'); } catch(e){} });
+        Object.keys(visitedFlows||{}).forEach(function(id){ try { canvas().removeMarker(id,'visited'); } catch(e){} });
+        visitedEls = {}; visitedFlows = {};
+      } catch(e){}
     }
     document.getElementById('next').onclick = function(){
       var steps = (data.manifest && data.manifest.steps) || [];
       if(current < 0 && steps.length){ playStep(0); return; }
       var ni = computeNextIndex();
-      if(ni >= 0){ playStep(ni); }
+      if(ni >= 0){ try { markTransition(current, ni); } catch(e){}; playStep(ni); }
     };
     var running = false; var runVisited = {};
     function waitForChoice(){ return new Promise(function(res){ choiceResolve = res; }); }
@@ -396,7 +442,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
             await waitForChoice();
           } else {
             var ni = computeNextIndex();
-            if(ni >= 0){ await playStep(ni); }
+            if(ni >= 0){ try { markTransition(current, ni); } catch(e){}; await playStep(ni); }
             else {
               // If EndEvent reachable but no explicit step exists for it, briefly highlight the EndEvent then finish
               var endId = findReachableEndId();

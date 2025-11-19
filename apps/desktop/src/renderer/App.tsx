@@ -56,6 +56,9 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<boolean>(false);
   const previewCancelRef = useRef<boolean>(false);
+  // Track visited elements/flows during preview to leave a trail
+  const visitedElsRef = useRef<Set<string>>(new Set());
+  const visitedFlowsRef = useRef<Set<string>>(new Set());
   const [previewChoices, setPreviewChoices] = useState<Array<{ label: string; to: number }>>([]);
   const choiceResolverRef = useRef<((to: number) => void) | null>(null);
   const [previewText, setPreviewText] = useState<string>("");
@@ -209,6 +212,75 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
 
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+  const addVisitedEl = (id: string) => {
+    if (!modelerRef.current || !id) return;
+    const set = visitedElsRef.current;
+    if (set.has(id)) return;
+    try { (modelerRef.current as any).get('canvas').addMarker(id, 'visited'); set.add(id); } catch {}
+  };
+  const addVisitedFlow = (id: string) => {
+    if (!modelerRef.current || !id) return;
+    const set = visitedFlowsRef.current;
+    if (set.has(id)) return;
+    try { (modelerRef.current as any).get('canvas').addMarker(id, 'visited'); set.add(id); } catch {}
+  };
+  const clearVisited = () => {
+    if (!modelerRef.current) return;
+    const canvas = (modelerRef.current as any).get('canvas');
+    for (const id of visitedElsRef.current) { try { canvas.removeMarker(id, 'visited'); } catch {} }
+    for (const id of visitedFlowsRef.current) { try { canvas.removeMarker(id, 'visited'); } catch {} }
+    visitedElsRef.current.clear();
+    visitedFlowsRef.current.clear();
+  };
+
+  // Compute path (nodes + sequence flows) between two BPMN element ids
+  const computePathBetween = (fromId: string, toId: string): { nodes: string[]; flows: string[] } => {
+    const er = (modelerRef.current as any)?.get('elementRegistry');
+    const from = er?.get(fromId)?.businessObject;
+    const targetId = toId;
+    const prev: Record<string, { prev: string; flow: string }> = {};
+    const q: any[] = [];
+    const seen = new Set<string>();
+    if (from?.id) { q.push(from); seen.add(from.id); }
+    while (q.length) {
+      const n = q.shift();
+      if (!n) break;
+      if (n.id === targetId) {
+        const nodes: string[] = [n.id];
+        const flows: string[] = [];
+        let cur = n.id as string;
+        while (prev[cur]) {
+          flows.push(prev[cur].flow);
+          nodes.push(prev[cur].prev);
+          cur = prev[cur].prev;
+        }
+        nodes.reverse(); flows.reverse();
+        return { nodes, flows };
+      }
+      const outs: any[] = (n.outgoing || []) as any[];
+      for (const f of outs) {
+        const t = f?.targetRef; const tid = t?.id;
+        if (!tid || seen.has(tid)) continue;
+        seen.add(tid);
+        prev[tid] = { prev: n.id, flow: f.id };
+        q.push(t);
+      }
+    }
+    return { nodes: [], flows: [] };
+  };
+
+  const markTransition = (fromIndex: number, toIndex: number) => {
+    const stepsLocal = stepsRef.current;
+    if (fromIndex < 0 || fromIndex >= stepsLocal.length) return;
+    if (toIndex < 0 || toIndex >= stepsLocal.length) return;
+    const from = stepsLocal[fromIndex];
+    const to = stepsLocal[toIndex];
+    addVisitedEl(from.bpmnElementId);
+    const path = computePathBetween(from.bpmnElementId, to.bpmnElementId);
+    path.nodes.forEach(addVisitedEl);
+    path.flows.forEach(addVisitedFlow);
+  };
+
   const waitForChoice = () => new Promise<number>((resolve) => { choiceResolverRef.current = resolve; });
 
   const computeChoices = (idx: number) => {
@@ -283,6 +355,7 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     if (!modelerRef.current) return;
     setPreviewing(true);
     previewCancelRef.current = false;
+    clearVisited();
     const canvas = (modelerRef.current as any).get('canvas');
     let idx = 0;
     while (!previewCancelRef.current && idx >= 0 && idx < stepsRef.current.length) {
@@ -292,6 +365,8 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
       setPreviewText(s.description || "");
       const blob = recordings[s.id];
       if (blob) await playBlob(blob); else await delay(s.durationMs);
+      // Leave a trail for visited elements
+      addVisitedEl(s.bpmnElementId);
       canvas.removeMarker(s.bpmnElementId, 'current');
       setPreviewText("");
       if (previewCancelRef.current) break;
@@ -303,13 +378,18 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
         const sel = await waitForChoice();
         setPreviewChoices([]);
         if (previewCancelRef.current || sel < 0) break;
+        markTransition(idx, sel);
         idx = sel;
         continue;
       }
       const { to, hasEnd } = computeNextFromFlow(idx);
-      if (to >= 0) { idx = to; continue; }
+      if (to >= 0) { markTransition(idx, to); idx = to; continue; }
       if (hasEnd) break;
-      idx = idx + 1; // fallback
+      // Linear fallback
+      if (idx + 1 < stepsRef.current.length) {
+        markTransition(idx, idx + 1);
+        idx = idx + 1;
+      } else break;
     }
     setPreviewing(false);
   };

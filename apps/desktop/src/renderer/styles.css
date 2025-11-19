@@ -9,6 +9,12 @@
   filter: drop-shadow(0 0 2px rgba(13,71,161,0.5));
 }
 
+/* Visited trail — keep previously played nodes/flows highlighted */
+.djs-element.visited > .djs-visual > :nth-child(1) {
+  stroke: #64b5f6 !important; /* lighter blue */
+  stroke-width: 3px !important;
+}
+
 /* Make selection outline and resize handles more visible */
 .djs-outline {
   stroke: #0d47a1 !important;
