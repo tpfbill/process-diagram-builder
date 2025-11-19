@@ -150,6 +150,8 @@ ${cssFont}
 .djs-element.current .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; fill: rgba(25,118,210,0.12) !important; }
 /* Visited trail */
 .djs-element.visited .djs-visual > :nth-child(1) { stroke: #64b5f6 !important; stroke-width: 6px !important; }
+/* Ensure current wins over visited when both are present (persist bold highlight) */
+.djs-element.current.visited .djs-visual > :nth-child(1) { stroke: #1976d2 !important; stroke-width: 16px !important; }
 /* Ensure diagram text is readable on light/dark backgrounds */
 svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255,255,0.9); stroke-width: 2px; }
 `;
@@ -421,7 +423,7 @@ svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255
 
     function playStep(idx){
       var s = (data.manifest.steps||[])[idx]; if(!s) return Promise.resolve();
-      current = idx; try { if(running && typeof runVisited !== 'undefined') runVisited[idx] = true; } catch(e){}; renderList(); addMarker(s); showChoices();
+      current = idx; try { if(running && typeof runVisited !== 'undefined') runVisited[idx] = true; } catch(e){}; renderList(); addMarker(s);
       showPopup(s && s.description || '');
       // Hide choices while audio/timer for this step is in progress
       try { var c = document.getElementById('choices'); if(c) c.innerHTML=''; } catch(e){}
