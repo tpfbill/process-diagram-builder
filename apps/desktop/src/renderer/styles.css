@@ -9,6 +9,13 @@
   filter: drop-shadow(0 0 2px rgba(13,71,161,0.5));
 }
 
+/* Softer current highlight for initial StartEvent in preview */
+.djs-element.current-start > .djs-visual > :nth-child(1) {
+  stroke: #1976d2 !important; /* lighter */
+  stroke-width: 8px !important;
+  filter: none !important;
+}
+
 /* Visited trail — keep previously played nodes/flows highlighted */
 .djs-element.visited > .djs-visual > :nth-child(1) {
   stroke: #64b5f6 !important; /* lighter blue */

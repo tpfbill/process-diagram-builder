@@ -414,16 +414,22 @@ import PaletteModule from 'bpmn-js/lib/features/palette';
     clearVisited();
     const canvas = (modelerRef.current as any).get('canvas');
     let idx = 0;
+    const elementRegistry = (modelerRef.current as any).get('elementRegistry');
     while (!previewCancelRef.current && idx >= 0 && idx < stepsRef.current.length) {
       const s = stepsRef.current[idx];
       if (!s) break;
-      canvas.addMarker(s.bpmnElementId, 'current');
+      const el = elementRegistry.get(s.bpmnElementId);
+      const t: string | undefined = el?.type || el?.businessObject?.$type;
+      const isStart = !!t && /StartEvent$/.test(t) && idx === 0;
+      canvas.addMarker(s.bpmnElementId, isStart ? 'current-start' : 'current');
       setPreviewText(s.description || "");
       const blob = recordings[s.id];
       if (blob) await playBlob(blob); else await delay(s.durationMs);
       // Leave a trail for visited elements
       addVisitedEl(s.bpmnElementId);
+      // Clean up current markers (both, to be safe)
       canvas.removeMarker(s.bpmnElementId, 'current');
+      canvas.removeMarker(s.bpmnElementId, 'current-start');
       setPreviewText("");
       if (previewCancelRef.current) break;
 
