@@ -152,6 +152,14 @@ ${cssFont}
 .djs-element.visited .djs-visual > :nth-child(1) { stroke: #64b5f6 !important; stroke-width: 6px !important; }
 /* Ensure diagram text is readable on light/dark backgrounds */
 svg text { fill: #111 !important; paint-order: stroke fill; stroke: rgba(255,255,255,0.9); stroke-width: 2px; }
+/* Dark mode: improve baseline connector visibility */
+@media (prefers-color-scheme: dark) {
+  .djs-connection .djs-visual > path {
+    stroke: #90caf9 !important; /* light blue for contrast */
+    stroke-width: 3px !important; /* slightly thicker for legibility */
+    opacity: 0.95;
+  }
+}
 `;
 
     const html = `<!doctype html>
