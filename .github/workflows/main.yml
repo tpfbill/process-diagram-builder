@@ -26,9 +26,6 @@ jobs:
       - name: Ensure WiX Toolset
         run: choco upgrade wixtoolset -y
 
-      - name: Install 7-Zip (system)
-        run: choco install 7zip -y
-
       - name: Install dependencies (root) with retries
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
@@ -39,17 +36,12 @@ jobs:
             catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
           }
 
-      - name: Install desktop deps (apps/desktop) with retries
-        working-directory: apps/desktop
-        run: |
-          $ErrorActionPreference = "Stop"
-          for ($i=1; $i -le 3; $i++) {
-            try { npm install --no-audit --fund=false; break }
-            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
-          }
-
       - name: Build core
         run: npm run -w packages/core build
+
+      - name: Install desktop deps
+        working-directory: apps/desktop
+        run: npm install --no-audit --fund=false
 
       - name: Build renderer (desktop)
         working-directory: apps/desktop
@@ -59,32 +51,14 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Satisfy electron-builder 7zip path
-        run: |
-          $ErrorActionPreference = "Stop"
-          $dest = Join-Path $env:GITHUB_WORKSPACE 'node_modules/7zip-bin/win/x64'
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          Copy-Item -Force 'C:\Program Files\7-Zip\7z.exe' (Join-Path $dest '7za.exe')
-          if (Test-Path 'C:\Program Files\7-Zip\7z.dll') {
-            Copy-Item -Force 'C:\Program Files\7-Zip\7z.dll' (Join-Path $dest '7z.dll')
-          }
-
-      - name: Package MSI (with retries)
-        working-directory: apps/desktop
+      - name: Package MSI with electron-builder v26 (pinned)
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-          USE_SYSTEM_7ZIP: "true"
         run: |
-          $ErrorActionPreference = "Stop"
-          $env:PATH += ';C:\Program Files\7-Zip'
-          for ($i=1; $i -le 3; $i++) {
-            try { npx --no-install electron-builder --win msi; break }
-            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
-          }
+          npx electron-builder@26.0.12 --projectDir apps/desktop --win msi
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
-
