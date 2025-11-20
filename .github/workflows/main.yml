@@ -7,25 +7,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: Ensure WiX Toolset
-        run: choco upgrade wixtoolset -
-      - name: Install dependencies (root)
-        run: npm ci
-      - name: Build renderer
+        run: choco upgrade wixtoolset -y
+
+      - name: Install dependencies (root, workspaces)
+        run: npm install --no-audit --fund=false
+
+      # (Optional, but safe) Build core first if needed
+      - name: Build core
+        run: npm run -w packages/core build
+
+      - name: Build renderer (desktop)
         working-directory: apps/desktop
         run: npm run build
-      - name: Build main/preload
+
+      - name: Build main/preload (desktop)
         working-directory: apps/desktop
         run: npm run build:electron
+
       - name: Package MSI
         working-directory: apps/desktop
         run: npx electron-builder --win msi
+
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
+
