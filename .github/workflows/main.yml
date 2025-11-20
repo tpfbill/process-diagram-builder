@@ -3,12 +3,7 @@ name: Build Windows MSI
 on:
   push:
     branches: [ feat/windows-msi ]
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: Branch to build
-        default: feat/windows-msi
-        required: false
+  workflow_dispatch: {}
 
 jobs:
   build-msi:
@@ -21,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || 'feat/windows-msi' }}
+          ref: feat/windows-msi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,11 +59,10 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Satisfy electron-builder 7zip path (create expected file)
+      - name: Satisfy electron-builder 7zip path
         run: |
           $ErrorActionPreference = "Stop"
-          $root = $env:GITHUB_WORKSPACE
-          $dest = Join-Path $root 'node_modules/7zip-bin/win/x64'
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'node_modules/7zip-bin/win/x64'
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           Copy-Item -Force 'C:\Program Files\7-Zip\7z.exe' (Join-Path $dest '7za.exe')
           if (Test-Path 'C:\Program Files\7-Zip\7z.dll') {
@@ -93,5 +87,4 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
-/*.msi
 
