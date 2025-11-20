@@ -70,9 +70,6 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Ensure 7zip-bin at repo root (no-save)
-        run: npm install --no-save 7zip-bin@^5.2.0
-
       - name: Package MSI (with retries)
         working-directory: apps/desktop
         shell: pwsh
@@ -95,3 +92,4 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
+
