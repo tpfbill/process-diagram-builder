@@ -3,9 +3,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
  import fs from 'node:fs';
  
  const createWindow = async () => {
-  const preloadPath = app.isPackaged
-    ? path.join(__dirname, '../electron/preload.cjs')
-    : path.join(__dirname, '../preload/preload.cjs');
+  const preloadPath = path.join(__dirname, '../preload/preload.cjs');
 
   const win = new BrowserWindow({
     width: 1280,
