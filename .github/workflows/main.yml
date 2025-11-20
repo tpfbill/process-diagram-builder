@@ -52,11 +52,19 @@ jobs:
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
         run: |
+          $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
-            try { npx electron-builder --win msi -c.executableName="process-diagram-builder" -c.extraMetadata.author="Process Diagram Builder" break }
-            catch { if ($i -eq 3) { throw } Start-Sleep -Seconds (10 * $i) }
-          }          
-     
+            try {
+              npx electron-builder --win msi `
+                -c.executableName="process-diagram-builder" `
+                -c.extraMetadata.author="Process Diagram Builder"
+              break
+            } catch {
+              if ($i -eq 3) { throw }
+              Start-Sleep -Seconds (10 * $i)
+            }
+          }
+  
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
