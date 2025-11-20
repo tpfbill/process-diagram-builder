@@ -40,11 +40,11 @@ jobs:
 
       - name: Build main (desktop)
         working-directory: apps/desktop
-        run: npm run build:main
+        run: npx esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/main --log-level=info --out-extension:.js=.cjs
 
       - name: Build preload (desktop)
         working-directory: apps/desktop
-        run: npm run build:preload
+        run: npx esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/preload --log-level=info --out-extension:.js=.cjs
 
       - name: Package MSI (with retries)
         working-directory: apps/desktop
