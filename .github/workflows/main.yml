@@ -2,7 +2,7 @@ name: Build Windows MSI
 
 on:
   push:
-    branches: [ feat/windows-msi ]
+    branches: [ feat/windows-msi-icon-only ]
   workflow_dispatch: {}
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: feat/windows-msi
+          ref: feat/windows-msi-icon-only
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,11 +26,23 @@ jobs:
       - name: Ensure WiX Toolset
         run: choco upgrade wixtoolset -y
 
+      - name: Install ImageMagick (for ICO generation)
+        run: choco install imagemagick -y --no-progress
+
       - name: Install dependencies (root) with retries
         env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: |
-          $ErrorActionPreference = "Stop"
+          $ErrorActionPreference = 'Stop'
+          for ($i=1; $i -le 3; $i++) {
+            try { npm install --no-audit --fund=false; break }
+            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
+          }
+
+      - name: Install desktop deps (apps/desktop) with retries
+        working-directory: apps/desktop
+        run: |
+          $ErrorActionPreference = 'Stop'
           for ($i=1; $i -le 3; $i++) {
             try { npm install --no-audit --fund=false; break }
             catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
@@ -38,10 +50,6 @@ jobs:
 
       - name: Build core
         run: npm run -w packages/core build
-
-      - name: Install desktop deps
-        working-directory: apps/desktop
-        run: npm install --no-audit --fund=false
 
       - name: Build renderer (desktop)
         working-directory: apps/desktop
@@ -51,11 +59,30 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
+      - name: Generate Windows icon (ICO)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $br = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/build'
+          New-Item -ItemType Directory -Force -Path $br | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap 256,256
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.Clear([System.Drawing.Color]::FromArgb(255,25,118,210))
+          $font = New-Object System.Drawing.Font 'Segoe UI', 64, ([System.Drawing.FontStyle]::Bold)
+          $brush = [System.Drawing.Brushes]::White
+          $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+          $g.DrawString('PDB', $font, $brush, 12, 80)
+          $pngPath = Join-Path $br 'icon.png'
+          $bmp.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+          $g.Dispose(); $bmp.Dispose()
+          $icoPath = Join-Path $br 'icon.ico'
+          magick $pngPath -define icon:auto-resize=256,128,64,48,32,16 $icoPath
+          if (!(Test-Path $icoPath)) { throw 'ICO generation failed' }
+
       - name: Package MSI with electron-builder v26 (pinned)
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-        run: |
-          npx electron-builder@26.0.12 --projectDir apps/desktop --win msi
+        run: npx electron-builder@26.0.12 --projectDir apps/desktop --win msi
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
