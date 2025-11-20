@@ -38,9 +38,13 @@ jobs:
         working-directory: apps/desktop
         run: npm run build
 
-      - name: Build main/preload (desktop)
+      - name: Build main (desktop)
         working-directory: apps/desktop
-        run: npm run build:electron
+        run: npm run build:main
+
+      - name: Build preload (desktop)
+        working-directory: apps/desktop
+        run: npm run build:preload
 
       - name: Package MSI (with retries)
         working-directory: apps/desktop
