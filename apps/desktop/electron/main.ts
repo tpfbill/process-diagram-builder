@@ -13,10 +13,13 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
     }
   });
   if (!app.isPackaged) {
-    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5174';
     await win.loadURL(devUrl);
   } else {
-    await win.loadFile(path.join(__dirname, '../renderer/index.html'));
+    // In production, load the built Vite index.html from dist
+    // __dirname points to dist-electron/main; dist is two levels up
+    const indexPath = path.join(__dirname, '../../dist/index.html');
+    await win.loadFile(indexPath);
   }
  };
  
