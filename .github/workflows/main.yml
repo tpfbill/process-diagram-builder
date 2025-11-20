@@ -38,13 +38,8 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
-            try {
-              npm install --no-audit --fund=false
-              break
-            } catch {
-              if ($i -eq 3) { throw }
-              Start-Sleep -Seconds (10 * $i)
-            }
+            try { npm install --no-audit --fund=false; break }
+            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
           }
 
       - name: Install desktop deps (apps/desktop) with retries
@@ -53,13 +48,8 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
-            try {
-              npm install --no-audit --fund=false
-              break
-            } catch {
-              if ($i -eq 3) { throw }
-              Start-Sleep -Seconds (10 * $i)
-            }
+            try { npm install --no-audit --fund=false; break }
+            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
           }
 
       - name: Build core
@@ -73,13 +63,16 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Satisfy electron-builder’s 7zip path (copy system 7z.exe)
+      - name: Satisfy electron-builder 7zip path
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $dest = "node_modules/7zip-bin/win/x64"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           Copy-Item -Force "C:\Program Files\7-Zip\7z.exe" (Join-Path $dest "7za.exe")
+          if (Test-Path "C:\Program Files\7-Zip\7z.dll") {
+            Copy-Item -Force "C:\Program Files\7-Zip\7z.dll" (Join-Path $dest "7z.dll")
+          }
 
       - name: Package MSI (with retries)
         working-directory: apps/desktop
@@ -91,13 +84,8 @@ jobs:
           $ErrorActionPreference = "Stop"
           $env:PATH += ";C:\Program Files\7-Zip"
           for ($i=1; $i -le 3; $i++) {
-            try {
-              npx --no-install electron-builder --win msi
-              break
-            } catch {
-              if ($i -eq 3) { throw }
-              Start-Sleep -Seconds (10 * $i)
-            }
+            try { npx --no-install electron-builder --win msi; break }
+            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
           }
 
       - name: Upload MSI artifact
@@ -105,3 +93,4 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
+msi
