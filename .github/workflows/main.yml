@@ -73,6 +73,14 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
+      - name: Satisfy electron-builder’s 7zip path (copy system 7z.exe)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dest = "node_modules/7zip-bin/win/x64"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Force "C:\Program Files\7-Zip\7z.exe" (Join-Path $dest "7za.exe")
+
       - name: Package MSI (with retries)
         working-directory: apps/desktop
         shell: pwsh
