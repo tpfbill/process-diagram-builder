@@ -64,10 +64,11 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Satisfy electron-builder 7zip path
+      - name: Satisfy electron-builder 7zip path (create expected file)
         run: |
           $ErrorActionPreference = "Stop"
-          $dest = Join-Path $env:GITHUB_WORKSPACE 'node_modules/7zip-bin/win/x64'
+          $root = $env:GITHUB_WORKSPACE
+          $dest = Join-Path $root 'node_modules/7zip-bin/win/x64'
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           Copy-Item -Force 'C:\Program Files\7-Zip\7z.exe' (Join-Path $dest '7za.exe')
           if (Test-Path 'C:\Program Files\7-Zip\7z.dll') {
@@ -81,7 +82,7 @@ jobs:
           USE_SYSTEM_7ZIP: "true"
         run: |
           $ErrorActionPreference = "Stop"
-          $env:PATH += ";C:\Program Files\7-Zip"
+          $env:PATH += ';C:\Program Files\7-Zip'
           for ($i=1; $i -le 3; $i++) {
             try { npx --no-install electron-builder --win msi; break }
             catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
@@ -92,4 +93,5 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
+/*.msi
 
