@@ -44,9 +44,6 @@ jobs:
             }
           }
 
-      - name: Ensure 7zip-bin at root (no-save)
-        run: npm install --no-save 7zip-bin@^5.2.0
-
       - name: Install desktop deps (apps/desktop) with retries
         working-directory: apps/desktop
         shell: pwsh
@@ -73,7 +70,10 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Package MSI (with retries) using local electron-builder
+      - name: Ensure 7zip-bin at repo root (no-save)
+        run: npm install --no-save 7zip-bin@^5.2.0
+
+      - name: Package MSI (with retries)
         working-directory: apps/desktop
         shell: pwsh
         env:
@@ -82,7 +82,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
             try {
-              node ./node_modules/electron-builder/out/cli/cli.js --win msi
+              npx --no-install electron-builder --win msi
               break
             } catch {
               if ($i -eq 3) { throw }
