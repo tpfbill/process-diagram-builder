@@ -13,6 +13,9 @@ on:
 jobs:
   build-msi:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
 
     steps:
       - name: Checkout
@@ -32,7 +35,6 @@ jobs:
         run: choco install 7zip -y
 
       - name: Install dependencies (root) with retries
-        shell: pwsh
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
         run: |
@@ -44,7 +46,6 @@ jobs:
 
       - name: Install desktop deps (apps/desktop) with retries
         working-directory: apps/desktop
-        shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
@@ -64,19 +65,17 @@ jobs:
         run: npm run build:electron
 
       - name: Satisfy electron-builder 7zip path
-        shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $dest = "node_modules/7zip-bin/win/x64"
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'node_modules/7zip-bin/win/x64'
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          Copy-Item -Force "C:\Program Files\7-Zip\7z.exe" (Join-Path $dest "7za.exe")
-          if (Test-Path "C:\Program Files\7-Zip\7z.dll") {
-            Copy-Item -Force "C:\Program Files\7-Zip\7z.dll" (Join-Path $dest "7z.dll")
+          Copy-Item -Force 'C:\Program Files\7-Zip\7z.exe' (Join-Path $dest '7za.exe')
+          if (Test-Path 'C:\Program Files\7-Zip\7z.dll') {
+            Copy-Item -Force 'C:\Program Files\7-Zip\7z.dll' (Join-Path $dest '7z.dll')
           }
 
       - name: Package MSI (with retries)
         working-directory: apps/desktop
-        shell: pwsh
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           USE_SYSTEM_7ZIP: "true"
@@ -93,4 +92,4 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
-msi
+
