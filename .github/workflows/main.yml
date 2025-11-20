@@ -44,6 +44,9 @@ jobs:
             }
           }
 
+      - name: Ensure 7zip-bin at repo root (no-save)
+        run: npm install --no-save 7zip-bin@^5.2.0
+
       - name: Install desktop deps (apps/desktop) with retries
         working-directory: apps/desktop
         shell: pwsh
@@ -58,6 +61,10 @@ jobs:
               Start-Sleep -Seconds (10 * $i)
             }
           }
+
+      - name: Ensure 7zip-bin inside apps/desktop (no-save)
+        working-directory: apps/desktop
+        run: npm install --no-save 7zip-bin@^5.2.0
 
       - name: Build core
         run: npm run -w packages/core build
@@ -92,4 +99,3 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
-
