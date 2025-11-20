@@ -2,8 +2,13 @@ name: Build Windows MSI
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch: {}
+    branches: [ feat/windows-msi ]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to build
+        default: feat/windows-msi
+        required: false
 
 jobs:
   build-msi:
@@ -12,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'feat/windows-msi' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -21,7 +28,7 @@ jobs:
       - name: Ensure WiX Toolset
         run: choco upgrade wixtoolset -y
 
-      - name: Install dependencies (root, workspaces) with retries
+      - name: Install dependencies (root) with retries
         shell: pwsh
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
