@@ -2,6 +2,7 @@
   "name": "@pdb/desktop",
   "version": "0.1.0",
   "private": true,
+  "description": "Desktop editor for Process Diagram Builder (Electron + React)",
   "author": "Process Diagram Builder",
   "type": "module",
   "main": "dist-electron/main/main.cjs",
