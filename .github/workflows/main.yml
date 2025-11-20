@@ -92,7 +92,6 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
-        uses: actions/upload-artifact@v4
-        with:
+
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
