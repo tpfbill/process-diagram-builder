@@ -44,6 +44,13 @@ jobs:
             }
           }
 
+      - name: Install desktop deps (apps/desktop)
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          npm install --no-audit --fund=false
+
       - name: Build core
         run: npm run -w packages/core build
 
@@ -64,7 +71,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
             try {
-              npx electron-builder --win msi
+              npx --no-install electron-builder --win msi
               break
             } catch {
               if ($i -eq 3) { throw }
@@ -77,4 +84,3 @@ jobs:
         with:
           name: process-diagram-builder-msi
           path: apps/desktop/release/*.msi
-
