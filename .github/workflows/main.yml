@@ -26,9 +26,15 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
         run: |
+          $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
-            try { npm install --no-audit --fund=false; break }
-            catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
+            try {
+              npm install --no-audit --fund=false
+              break
+            } catch {
+              if ($i -eq 3) { throw }
+              Start-Sleep -Seconds (10 * $i)
+            }
           }
 
       - name: Build core
@@ -38,13 +44,9 @@ jobs:
         working-directory: apps/desktop
         run: npm run build
 
-      - name: Build main (desktop)
+      - name: Build main/preload (desktop)
         working-directory: apps/desktop
-        run: npx esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/main --log-level=info --out-extension:.js=.cjs
-
-      - name: Build preload (desktop)
-        working-directory: apps/desktop
-        run: npx esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron/preload --log-level=info --out-extension:.js=.cjs
+        run: npm run build:electron
 
       - name: Package MSI (with retries)
         working-directory: apps/desktop
@@ -55,14 +57,14 @@ jobs:
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
             try {
-              npx electron-builder --win msi -c.executableName=process-diagram-builder
+              npx electron-builder --win msi
               break
             } catch {
               if ($i -eq 3) { throw }
               Start-Sleep -Seconds (10 * $i)
             }
           }
-  
+
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
