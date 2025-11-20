@@ -17,7 +17,14 @@ jobs:
         run: choco upgrade wixtoolset -y
 
       - name: Install dependencies (root, workspaces)
-        run: npm install --no-audit --fund=false
+  shell: pwsh
+  env:
+    ELECTRON_SKIP_BINARY_DOWNLOAD: "1"   # skip Electron’s postinstall download
+  run: |
+    for ($i=1; $i -le 3; $i++) {
+      try { npm install --no-audit --fund=false; break }
+      catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
+    }
 
       - name: Build core
         run: npm run -w packages/core build
@@ -30,9 +37,16 @@ jobs:
         working-directory: apps/desktop
         run: npm run build:electron
 
-      - name: Package MSI
-        working-directory: apps/desktop
-        run: npx electron-builder --win msi
+      - name: Package MSI (with retry)
+  working-directory: apps/desktop
+  shell: pwsh
+  env:
+    ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+  run: |
+    for ($i=1; $i -le 3; $i++) {
+      try { npx electron-builder --win msi; break }
+      catch { if ($i -eq 3) { throw }; Start-Sleep -Seconds (10 * $i) }
+    }
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
