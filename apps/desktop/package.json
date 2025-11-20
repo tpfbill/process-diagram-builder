@@ -2,6 +2,7 @@
   "name": "@pdb/desktop",
   "version": "0.1.0",
   "private": true,
+  "author": "Process Diagram Builder",
   "type": "module",
   "main": "dist-electron/main/main.cjs",
   "scripts": {
@@ -53,6 +54,7 @@
       "output": "release"
     },
     "win": {
+      "executableName": "process-diagram-builder",
       "target": [
         {
           "target": "msi",
