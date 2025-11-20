@@ -52,10 +52,12 @@
       "index.html"
     ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "win": {
       "executableName": "process-diagram-builder",
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "msi",
