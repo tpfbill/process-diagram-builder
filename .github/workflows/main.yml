@@ -55,9 +55,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           for ($i=1; $i -le 3; $i++) {
             try {
-              npx electron-builder --win msi `
-                -c.executableName="process-diagram-builder" `
-                -c.extraMetadata.author="Process Diagram Builder"
+              npx electron-builder --win msi -c.executableName=process-diagram-builder
               break
             } catch {
               if ($i -eq 3) { throw }
